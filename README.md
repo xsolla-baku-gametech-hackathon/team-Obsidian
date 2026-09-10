@@ -1,49 +1,40 @@
-# Xsolla Baku GameTech Hackathon
+# Indie Launch Intelligence
 
-Welcome! This repository is the starting template for teams participating in the **Xsolla Baku GameTech Hackathon** (September 9–11).
+**Don’t guess when to launch your game. Launch when the market gives you the best opportunity.**
 
-## About the Hackathon
+A decision-support platform helping indie developers understand Steam release
+competition before choosing a launch window. Planned views include a genre saturation
+heatmap, competitor timeline, and explainable launch recommendations using real market
+data with a cached offline fallback. It provides market context, not success predictions.
 
-Xsolla Baku is organizing a GameTech Hackathon to introduce Azerbaijan's developer community to the gametech industry and give developers a chance to build real prototype solutions.
+## Repository status
 
-- **Sept 9** — Workshops: Xsolla team members introduce industry solutions and challenges across different gametech areas.
-- **Sept 10–11** — Build days: teams design and build a prototype solution, then present it to the jury.
+This repository contains the architecture and tracked directory scaffold. The scraper,
+API, model, dashboard, datasets, dependency manifests, and deployment are not implemented
+yet. There are no installation or application launch commands at this stage.
 
-## How to Use This Template
+## Start here
 
-1. Click **"Use this template"** at the top of this repo (not "Fork").
-2. Name your new repo `team-yourteamname` — use the same team name you registered with, so it's easy to match against the participant list.
-3. Set your new repo to **Public**.
-4. Add your teammates as collaborators (or ask the organizers to add them — you'll need to have submitted GitHub profile links during registration).
-5. Start building! Commit early and often — your commit history is part of how the project is evaluated.
+- [Architecture and target file tree](docs/ARCHITECTURE.md): boundaries, data flow, model integration, offline design, and growth path.
+- [Integration contracts](contracts/README.md): proposed API, shared records, and snapshot format.
+- [Team workflow](docs/TEAM_WORKFLOW.md): ownership, implementation order, and validation.
+- [Data policy](data/README.md): provenance, cached exports, and real versus synthetic data.
+- [ML workspace](ml/README.md): baseline, experiments, and future model promotion.
+- [Hackathon information](docs/HACKATHON.md) and [Code of Conduct](CODE_OF_CONDUCT.md).
 
-## Judging Categories
+## Layout
 
-| Category | What it means |
-|---|---|
-| **Best Project** | Overall strongest execution and prototype quality |
-| **Best Idea** | Most original/impactful concept |
-| **Best Code** | Code quality, structure, readability |
-| **Most GitHub Commits** | Team repo with the most commits as of the end of Sept 11 |
+| Path | Purpose | Primary owner |
+| --- | --- | --- |
+| `apps/web` | React + TypeScript dashboard | Frontend |
+| `apps/api` | Python FastAPI API and future LLM adapters | Backend |
+| `pipelines` | Steam collection, normalization, publication | Backend + ML |
+| `packages/core` | Shared domain, analytics, scoring, storage interfaces | Backend + ML |
+| `contracts` | API and offline snapshot handoff | All three roles |
+| `ml` | Experiments and evaluation, outside serving code | ML |
+| `data` | Local datasets and snapshot staging | Backend + ML |
+| `infra`, `scripts`, `tests/e2e` | Deployment, tooling, integration checks | Shared |
 
-## Ground Rules
-
-- All work must happen in your team's public repo on this GitHub organization.
-- Development happens during the official build window (Sept 10–11). Work done before or after this window may not count toward judging.
-- Keep commits meaningful — commit history should reflect real progress, not artificially inflate commit counts. As a reference, consider following [Semantic Commit Messages](https://gist.github.com/joshbuchea/6f47e86d2510bce28f8e7f42ae84c716) conventions for clear, structured commit messages.
-- No confidential or proprietary Xsolla data may be used or shared in your project.
-- Be respectful and collaborative — see [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md).
-
-## Submission Checklist
-
-- [ ] Repo is public and named `team-yourteamname`
-- [ ] README explains what your project does and how to run it
-- [ ] All teammates are added as collaborators
-- [ ] Final commit made before the Sept 11 deadline
-- [ ] Presentation prepared for the jury
-
-## Questions?
-
-The Google Developers Group (GDG) team will be coordinating and supporting teams throughout the hackathon — reach out to them in person during the event, or through whatever channel is shared with participants at kickoff.
-
-Good luck, and have fun building! 🎮
+The API and pipeline import the same recommendation package. The frontend consumes
+versioned results over HTTP or from a validated JSON snapshot. Future LLM integrations
+explain those results through the backend.
