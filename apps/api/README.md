@@ -10,7 +10,7 @@ data limitations. Optional inputs: uppercase `country_code` (default US),
 `earliest_date` and `latest_date` (both required if overriding the default next
 90 days).
 
-After installing dependencies, import the supplied CSV once:
+After installing dependencies, import the downloaded local CSV once:
 
 ```bash
 .venv/bin/python -m ili_pipeline.catalog
@@ -19,6 +19,9 @@ After installing dependencies, import the supplied CSV once:
 
 The default input is `data/raw/steam/steam_games.csv`; the output is
 `data/processed/steam-catalog.sqlite`. Import is streaming and publication is atomic.
+The CSV is large and ignored by git, so each developer needs a local copy or a shared
+team download. Reports still load live Steam metadata and upcoming timing without this
+catalog, but historical pricing and similarity comparisons are limited.
 Set `ILI_CATALOG_PATH` to override the API's default catalog location. Missing catalog
 falls back to a metadata-only Steam report when live lookup succeeds; a failed upstream
 lookup falls back to catalog details when present. Reports cache for five minutes.
