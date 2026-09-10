@@ -48,6 +48,27 @@ def test_fetch_game_normalizes_metadata_reviews_and_players() -> None:
                                 "final": 1499,
                                 "discount_percent": 0,
                             },
+                            "screenshots": [
+                                {
+                                    "id": 1,
+                                    "path_thumbnail": "https://cdn.example/thumb.jpg",
+                                    "path_full": "https://cdn.example/full.jpg",
+                                }
+                            ],
+                            "movies": [
+                                {
+                                    "id": 2,
+                                    "name": "Launch Trailer",
+                                    "thumbnail": "https://cdn.example/movie.jpg",
+                                    "webm": {"480": "https://cdn.example/movie.webm"},
+                                    "mp4": {"max": "https://cdn.example/movie.mp4"},
+                                    "highlight": True,
+                                }
+                            ],
+                            "supported_languages": "English<strong>*</strong>",
+                            "pc_requirements": {"minimum": "Requires a 64-bit processor"},
+                            "controller_support": "full",
+                            "content_descriptors": {"notes": ["Fantasy Violence"]},
                             "recommendations": {"total": 900000},
                         },
                     }
@@ -101,8 +122,66 @@ def test_fetch_game_normalizes_metadata_reviews_and_players() -> None:
         assert result.metadata.name == "Stardew Valley"
         assert result.metadata.price is not None
         assert result.metadata.price.final_minor == 1499
+        assert result.metadata.screenshots[0].full_url == "https://cdn.example/full.jpg"
+        assert result.metadata.movies[0].mp4_url == "https://cdn.example/movie.mp4"
+        assert result.metadata.pc_requirements is not None
+        assert result.metadata.pc_requirements.minimum == "Requires a 64-bit processor"
+        assert result.metadata.content_descriptors == ["Fantasy Violence"]
+        assert result.live_data.reviews_available is True
         assert result.review_summary.returned_reviews == 1
         assert result.reviews[0].text == "Excellent game"
         assert result.current_players == 50000
+
+    asyncio.run(run())
+
+
+def test_fetch_upcoming_game_returns_metadata_without_live_metrics() -> None:
+    requested_paths: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requested_paths.append(request.url.path)
+        if request.url.path == "/api/appdetails":
+            return httpx.Response(
+                200,
+                json={
+                    "999999": {
+                        "success": True,
+                        "data": {
+                            "type": "game",
+                            "name": "Future Fixture",
+                            "short_description": "Coming soon.",
+                            "developers": ["Studio"],
+                            "publishers": ["Publisher"],
+                            "genres": [{"id": "1", "description": "Action"}],
+                            "categories": [{"id": 2, "description": "Single-player"}],
+                            "platforms": {"windows": True},
+                            "release_date": {"coming_soon": True, "date": "Q4 2026"},
+                            "is_free": False,
+                            "header_image": "https://cdn.example/header.jpg",
+                            "screenshots": [
+                                {
+                                    "id": 10,
+                                    "path_thumbnail": "https://cdn.example/future-thumb.jpg",
+                                    "path_full": "https://cdn.example/future-full.jpg",
+                                }
+                            ],
+                        },
+                    }
+                },
+            )
+        return httpx.Response(500)
+
+    async def run() -> None:
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http_client:
+            result = await SteamClient(http_client, retries=0).fetch_game(999999)
+        assert result.metadata.release_date.coming_soon is True
+        assert result.metadata.release_date.raw == "Q4 2026"
+        assert result.metadata.screenshots[0].full_url == "https://cdn.example/future-full.jpg"
+        assert result.reviews == []
+        assert result.review_summary is None
+        assert result.current_players is None
+        assert result.live_data.reviews_available is False
+        assert result.live_data.current_players_available is False
+        assert requested_paths == ["/api/appdetails"]
 
     asyncio.run(run())

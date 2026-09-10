@@ -26,6 +26,26 @@ class SteamPlatforms(BaseModel):
     linux: bool = False
 
 
+class SteamScreenshot(BaseModel):
+    id: int | None = None
+    thumbnail_url: str | None = None
+    full_url: str | None = None
+
+
+class SteamMovie(BaseModel):
+    id: int | None = None
+    name: str | None = None
+    thumbnail_url: str | None = None
+    webm_url: str | None = None
+    mp4_url: str | None = None
+    highlighted: bool = False
+
+
+class SteamRequirements(BaseModel):
+    minimum: str | None = None
+    recommended: str | None = None
+
+
 class SteamReleaseDate(BaseModel):
     coming_soon: bool
     raw: str | None = None
@@ -49,6 +69,14 @@ class SteamGameMetadata(BaseModel):
     price: SteamPrice | None = None
     header_image: str | None = None
     website: str | None = None
+    screenshots: list[SteamScreenshot] = Field(default_factory=list)
+    movies: list[SteamMovie] = Field(default_factory=list)
+    supported_languages: str | None = None
+    pc_requirements: SteamRequirements | None = None
+    mac_requirements: SteamRequirements | None = None
+    linux_requirements: SteamRequirements | None = None
+    controller_support: str | None = None
+    content_descriptors: list[str] = Field(default_factory=list)
     metacritic_score: int | None = None
     recommendation_count: int | None = None
 
@@ -89,9 +117,16 @@ class SteamReviewSummary(BaseModel):
     returned_reviews: int
 
 
+class SteamLiveDataAvailability(BaseModel):
+    reviews_available: bool
+    current_players_available: bool
+    unavailable_reasons: list[str] = Field(default_factory=list)
+
+
 class SteamGameInspection(BaseModel):
     metadata: SteamGameMetadata
     reviews: list[SteamReview]
-    review_summary: SteamReviewSummary
+    review_summary: SteamReviewSummary | None = None
     current_players: int | None = None
+    live_data: SteamLiveDataAvailability
     fetched_at: datetime

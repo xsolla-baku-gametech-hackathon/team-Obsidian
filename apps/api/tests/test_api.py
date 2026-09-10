@@ -6,6 +6,7 @@ from ili_api.settings import Settings
 from ili_core.domain.steam import (
     SteamGameInspection,
     SteamGameMetadata,
+    SteamLiveDataAvailability,
     SteamPlatforms,
     SteamReleaseDate,
     SteamReviewSummary,
@@ -34,6 +35,10 @@ class FakeSteamClient:
                 returned_reviews=0,
             ),
             current_players=0,
+            live_data=SteamLiveDataAvailability(
+                reviews_available=True,
+                current_players_available=True,
+            ),
             fetched_at=datetime.now(UTC),
         )
 
