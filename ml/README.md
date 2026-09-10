@@ -1,5 +1,11 @@
 # ML workspace
 
+The launch advisor baseline is implemented in `ili_core.recommendation.launch` and
+served by `POST /api/v1/recommendations`. It matches competitors, ranks release
+windows when coverage passes, and estimates comparable price ranges. See the
+[model card and run instructions](MODEL_CARD.md) for contracts, formulas, Steam
+collection, evidence requirements, and limitations. It is not a trained model.
+
 Use `experiments/` for exploratory analysis and `evaluation/` for reproducible evaluation
 scripts and reports. Serving code belongs in `packages/core/src/ili_core`, not notebooks.
 Local `artifacts/` and `runs/` are ignored; use artifact storage when model files grow.

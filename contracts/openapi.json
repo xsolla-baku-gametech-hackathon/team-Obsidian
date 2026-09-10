@@ -30,6 +30,47 @@
         }
       }
     },
+    "/api/v1/steam/games/analyze": {
+      "post": {
+        "tags": [
+          "steam"
+        ],
+        "summary": "Analyze Game",
+        "operationId": "analyze_game_api_v1_steam_games_analyze_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnalyzeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalysisResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/steam/games/inspect": {
       "post": {
         "tags": [
@@ -70,10 +111,574 @@
           }
         }
       }
+    },
+    "/api/v1/recommendations": {
+      "post": {
+        "tags": [
+          "recommendations"
+        ],
+        "summary": "Launch Recommendations",
+        "description": "Analyze a validated market snapshot without upstream requests.",
+        "operationId": "launch_recommendations_api_v1_recommendations_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LaunchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LaunchReport"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "AnalysisResponse": {
+        "properties": {
+          "game": {
+            "$ref": "#/components/schemas/GameProfile"
+          },
+          "target_source": {
+            "type": "string",
+            "title": "Target Source"
+          },
+          "catalog": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Catalog"
+          },
+          "competitors": {
+            "items": {
+              "$ref": "#/components/schemas/CatalogMatch"
+            },
+            "type": "array",
+            "title": "Competitors"
+          },
+          "report": {
+            "$ref": "#/components/schemas/LaunchReport"
+          },
+          "refreshed_competitor_count": {
+            "type": "integer",
+            "title": "Refreshed Competitor Count"
+          },
+          "earliest_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Earliest Date"
+          },
+          "latest_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Latest Date"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "game",
+          "target_source",
+          "catalog",
+          "competitors",
+          "report",
+          "refreshed_competitor_count",
+          "earliest_date",
+          "latest_date"
+        ],
+        "title": "AnalysisResponse"
+      },
+      "AnalyzeRequest": {
+        "properties": {
+          "steam_url": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 20,
+            "title": "Steam Url"
+          },
+          "country_code": {
+            "type": "string",
+            "pattern": "^[A-Z]{2}$",
+            "title": "Country Code",
+            "default": "US"
+          },
+          "earliest_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Earliest Date"
+          },
+          "latest_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Date"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "steam_url"
+        ],
+        "title": "AnalyzeRequest"
+      },
+      "CatalogGame": {
+        "properties": {
+          "app_id": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "App Id"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "genres": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 50,
+            "title": "Genres"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "title": "Tags"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 10000,
+            "title": "Description",
+            "default": ""
+          },
+          "business_model": {
+            "type": "string",
+            "enum": [
+              "premium",
+              "free"
+            ],
+            "title": "Business Model",
+            "default": "premium"
+          },
+          "playtime_hours": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 10000.0,
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Playtime Hours"
+          },
+          "release_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Release Date"
+          },
+          "release_date_raw": {
+            "type": "string",
+            "title": "Release Date Raw",
+            "default": ""
+          },
+          "review_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Count"
+          },
+          "peak_ccu": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Peak Ccu"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "CatalogGame"
+      },
+      "CatalogMatch": {
+        "properties": {
+          "game": {
+            "$ref": "#/components/schemas/CatalogGame"
+          },
+          "similarity": {
+            "type": "number",
+            "title": "Similarity"
+          },
+          "regular_price_minor": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Regular Price Minor"
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "price_refreshed": {
+            "type": "boolean",
+            "title": "Price Refreshed",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "game",
+          "similarity"
+        ],
+        "title": "CatalogMatch"
+      },
+      "Competitor": {
+        "properties": {
+          "app_id": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "App Id"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "genres": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 50,
+            "title": "Genres"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "title": "Tags"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 10000,
+            "title": "Description",
+            "default": ""
+          },
+          "business_model": {
+            "type": "string",
+            "enum": [
+              "premium",
+              "free"
+            ],
+            "title": "Business Model",
+            "default": "premium"
+          },
+          "playtime_hours": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 10000.0,
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Playtime Hours"
+          },
+          "source": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Source"
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Observed At"
+          },
+          "release_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Release Date"
+          },
+          "release_date_raw": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Release Date Raw"
+          },
+          "date_precision": {
+            "type": "string",
+            "enum": [
+              "day",
+              "month",
+              "quarter",
+              "year",
+              "unknown"
+            ],
+            "title": "Date Precision",
+            "default": "unknown"
+          },
+          "coming_soon": {
+            "type": "boolean",
+            "title": "Coming Soon",
+            "default": false
+          },
+          "regular_price_minor": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Regular Price Minor"
+          },
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$",
+            "title": "Currency",
+            "default": "USD"
+          },
+          "region": {
+            "type": "string",
+            "pattern": "^[A-Z]{2}$",
+            "title": "Region",
+            "default": "US"
+          },
+          "followers": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Followers"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "app_id",
+          "name",
+          "source",
+          "observed_at"
+        ],
+        "title": "Competitor"
+      },
+      "Coverage": {
+        "properties": {
+          "horizon_start": {
+            "type": "string",
+            "format": "date",
+            "title": "Horizon Start"
+          },
+          "horizon_end": {
+            "type": "string",
+            "format": "date",
+            "title": "Horizon End"
+          },
+          "discovery_complete": {
+            "type": "boolean",
+            "title": "Discovery Complete",
+            "default": false
+          },
+          "discovery_method": {
+            "type": "string",
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Discovery Method"
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Notes"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "horizon_start",
+          "horizon_end",
+          "discovery_method",
+          "notes"
+        ],
+        "title": "Coverage"
+      },
+      "GameProfile": {
+        "properties": {
+          "app_id": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "App Id"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "genres": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 50,
+            "title": "Genres"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "title": "Tags"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 10000,
+            "title": "Description",
+            "default": ""
+          },
+          "business_model": {
+            "type": "string",
+            "enum": [
+              "premium",
+              "free"
+            ],
+            "title": "Business Model",
+            "default": "premium"
+          },
+          "playtime_hours": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 10000.0,
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Playtime Hours"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "GameProfile"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -168,6 +773,403 @@
           "cache_ttl_seconds"
         ],
         "title": "InspectionMeta"
+      },
+      "LaunchReport": {
+        "properties": {
+          "model_version": {
+            "type": "string",
+            "title": "Model Version",
+            "default": "launch-baseline-v1"
+          },
+          "policy_version": {
+            "type": "string",
+            "title": "Policy Version",
+            "default": "launch-policy-v1"
+          },
+          "model_type": {
+            "type": "string",
+            "const": "explainable_baseline",
+            "title": "Model Type",
+            "default": "explainable_baseline"
+          },
+          "dataset_id": {
+            "type": "string",
+            "title": "Dataset Id"
+          },
+          "generated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Generated At"
+          },
+          "confidence": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium"
+            ],
+            "title": "Confidence"
+          },
+          "competitors": {
+            "items": {
+              "$ref": "#/components/schemas/MatchedCompetitor"
+            },
+            "type": "array",
+            "title": "Competitors"
+          },
+          "release": {
+            "$ref": "#/components/schemas/ReleaseAdvice"
+          },
+          "price": {
+            "$ref": "#/components/schemas/PriceAdvice"
+          },
+          "recommendations": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Recommendations"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Warnings"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "dataset_id",
+          "generated_at",
+          "confidence",
+          "competitors",
+          "release",
+          "price",
+          "recommendations",
+          "warnings"
+        ],
+        "title": "LaunchReport"
+      },
+      "LaunchRequest": {
+        "properties": {
+          "game": {
+            "$ref": "#/components/schemas/GameProfile"
+          },
+          "dataset": {
+            "$ref": "#/components/schemas/MarketDataset"
+          },
+          "earliest_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Earliest Date"
+          },
+          "latest_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Latest Date"
+          },
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$",
+            "title": "Currency",
+            "default": "USD"
+          },
+          "region": {
+            "type": "string",
+            "pattern": "^[A-Z]{2}$",
+            "title": "Region",
+            "default": "US"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "game",
+          "dataset",
+          "earliest_date",
+          "latest_date"
+        ],
+        "title": "LaunchRequest"
+      },
+      "MarketDataset": {
+        "properties": {
+          "dataset_id": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Dataset Id"
+          },
+          "collected_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Collected At"
+          },
+          "coverage": {
+            "$ref": "#/components/schemas/Coverage"
+          },
+          "games": {
+            "items": {
+              "$ref": "#/components/schemas/Competitor"
+            },
+            "type": "array",
+            "maxItems": 10000,
+            "title": "Games"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "dataset_id",
+          "collected_at",
+          "coverage",
+          "games"
+        ],
+        "title": "MarketDataset"
+      },
+      "MatchedCompetitor": {
+        "properties": {
+          "app_id": {
+            "type": "integer",
+            "title": "App Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "similarity": {
+            "type": "number",
+            "title": "Similarity"
+          },
+          "shared_genres": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Shared Genres"
+          },
+          "shared_tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Shared Tags"
+          },
+          "release_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Release Date"
+          },
+          "followers": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Followers"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "app_id",
+          "name",
+          "similarity",
+          "shared_genres",
+          "shared_tags",
+          "release_date",
+          "followers"
+        ],
+        "title": "MatchedCompetitor"
+      },
+      "PriceAdvice": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "recommended",
+              "insufficient_evidence",
+              "free_to_play"
+            ],
+            "title": "Status"
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency"
+          },
+          "region": {
+            "type": "string",
+            "title": "Region"
+          },
+          "suggested_price_minor": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggested Price Minor"
+          },
+          "lower_price_minor": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lower Price Minor"
+          },
+          "upper_price_minor": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Upper Price Minor"
+          },
+          "evidence_app_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Evidence App Ids"
+          },
+          "explanation": {
+            "type": "string",
+            "title": "Explanation"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "status",
+          "currency",
+          "region",
+          "explanation"
+        ],
+        "title": "PriceAdvice"
+      },
+      "ReleaseAdvice": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ranked",
+              "insufficient_evidence"
+            ],
+            "title": "Status"
+          },
+          "best_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Best Date"
+          },
+          "windows": {
+            "items": {
+              "$ref": "#/components/schemas/ReleaseWindow"
+            },
+            "type": "array",
+            "title": "Windows"
+          },
+          "score_method": {
+            "type": "string",
+            "enum": [
+              "release_count",
+              "similarity_and_followers"
+            ],
+            "title": "Score Method",
+            "default": "release_count"
+          },
+          "undated_competitor_count": {
+            "type": "integer",
+            "title": "Undated Competitor Count",
+            "default": 0
+          },
+          "explanation": {
+            "type": "string",
+            "title": "Explanation"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "status",
+          "explanation"
+        ],
+        "title": "ReleaseAdvice"
+      },
+      "ReleaseWindow": {
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Start Date"
+          },
+          "end_date": {
+            "type": "string",
+            "format": "date",
+            "title": "End Date"
+          },
+          "rank": {
+            "type": "integer",
+            "title": "Rank"
+          },
+          "competition_score": {
+            "type": "number",
+            "title": "Competition Score"
+          },
+          "observed_release_count": {
+            "type": "integer",
+            "title": "Observed Release Count"
+          },
+          "evidence_app_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Evidence App Ids"
+          },
+          "explanation": {
+            "type": "string",
+            "title": "Explanation"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "start_date",
+          "end_date",
+          "rank",
+          "competition_score",
+          "observed_release_count",
+          "evidence_app_ids",
+          "explanation"
+        ],
+        "title": "ReleaseWindow"
       },
       "SteamCategory": {
         "properties": {

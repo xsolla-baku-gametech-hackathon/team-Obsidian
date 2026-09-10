@@ -9,16 +9,22 @@ data with a cached offline fallback. It provides market context, not success pre
 
 ## Repository status
 
-The React frontend provides a Steam-link form and a large paywall dialog over blurred
-report placeholders. Link validation checks format only. Game lookup, real reports,
-checkout, the API, and deployment remain pending.
+The React frontend accepts a Steam link and displays a generated report with catalog
+competitors, live Steam price comparisons, and recommendation evidence. The paywall
+is temporarily disabled. Checkout and deployment remain pending.
 
 Run the frontend with `cd apps/web && npm install && npm run dev`. See the
 [frontend guide](apps/web/README.md) for build commands and integration boundaries.
 The first backend slice is implemented: a FastAPI REST endpoint accepts a Steam Store
 game link and returns normalized metadata, up to 100 recent reviews, review totals, and
-the current concurrent-player count. The dashboard, bulk dataset pipeline, sentiment,
-recommendation model, and deployment are still pending.
+the current concurrent-player count. The CSV-to-SQLite importer and Steam-link report
+flow are also implemented. The explainable recommendation baseline supports
+competitor matching, release-window ranking with coverage checks, and comparable
+price recommendations through `POST /api/v1/recommendations`. A CLI collects selected
+Steam apps and runs offline inference; exhaustive upcoming discovery is still pending.
+The downloaded catalog contains no future releases, so reports explain that live
+upcoming discovery is needed before recommending a launch date. See the
+[model card and usage guide](ml/MODEL_CARD.md).
 
 See the [API guide](apps/api/README.md) for setup, request examples, and tests.
 

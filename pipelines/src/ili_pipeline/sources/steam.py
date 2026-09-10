@@ -149,6 +149,19 @@ class SteamClient:
             fetched_at=datetime.now(UTC),
         )
 
+    async def fetch_metadata(self, app_id: int, *, country_code: str = "US") -> SteamGameMetadata:
+        """Fetch only Store metadata; recommendations don't require review/player APIs."""
+        payload = await self._get_json(
+            "https://store.steampowered.com/api/appdetails",
+            {"appids": app_id, "cc": country_code.lower(), "l": "english"},
+        )
+        wrapper = payload.get(str(app_id))
+        if not isinstance(wrapper, dict) or not wrapper.get("success"):
+            raise SteamGameNotFound(f"Steam app {app_id} was not found or is unavailable")
+        if not isinstance(wrapper.get("data"), dict):
+            raise SteamUpstreamError("Steam game metadata was missing")
+        return self._metadata(app_id, wrapper["data"])
+
     @staticmethod
     def _metadata(app_id: int, row: dict[str, Any]) -> SteamGameMetadata:
         price = row.get("price_overview")

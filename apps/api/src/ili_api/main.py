@@ -8,6 +8,7 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from ili_core.storage.catalog import CatalogUnavailable, SteamCatalog
 from ili_pipeline.sources.steam import (
     InvalidSteamUrl,
     SteamClient,
@@ -15,7 +16,8 @@ from ili_pipeline.sources.steam import (
     SteamUpstreamError,
 )
 
-from ili_api.routes import health, steam
+from ili_api.routes import health, recommendations, steam
+from ili_api.services.analysis import SteamAnalysisService
 from ili_api.services.steam import SteamInspectionService
 from ili_api.settings import Settings, get_settings
 
@@ -24,22 +26,22 @@ def create_app(
     *,
     settings: Settings | None = None,
     steam_service: SteamInspectionService | None = None,
+    analysis_service: SteamAnalysisService | None = None,
 ) -> FastAPI:
     config = settings or get_settings()
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-        if steam_service is not None:
-            app.state.steam_service = steam_service
-            yield
-            return
         timeout = httpx.Timeout(config.steam_timeout_seconds)
         async with httpx.AsyncClient(
             timeout=timeout,
             headers={"User-Agent": config.steam_user_agent, "Accept": "application/json"},
         ) as client:
-            app.state.steam_service = SteamInspectionService(
+            app.state.steam_service = steam_service or SteamInspectionService(
                 SteamClient(client), cache_ttl_seconds=config.steam_cache_ttl_seconds
+            )
+            app.state.analysis_service = analysis_service or SteamAnalysisService(
+                SteamClient(client), SteamCatalog(config.catalog_path)
             )
             yield
 
@@ -74,6 +76,10 @@ def create_app(
     async def invalid_url(request: Request, exc: InvalidSteamUrl) -> JSONResponse:
         return error(request, 422, "invalid_steam_url", str(exc))
 
+    @app.exception_handler(CatalogUnavailable)
+    async def catalog_unavailable(request: Request, exc: CatalogUnavailable) -> JSONResponse:
+        return error(request, 503, "catalog_unavailable", str(exc))
+
     @app.exception_handler(SteamGameNotFound)
     async def not_found(request: Request, exc: SteamGameNotFound) -> JSONResponse:
         return error(request, 404, "steam_game_not_found", str(exc))
@@ -89,6 +95,7 @@ def create_app(
 
     app.include_router(health.router)
     app.include_router(steam.router)
+    app.include_router(recommendations.router)
     return app
 
 

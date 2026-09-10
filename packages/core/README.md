@@ -5,4 +5,7 @@ canonical records; `analytics` builds weekly features; `recommendation` provides
 ranking and coverage policy; `storage` owns repository interfaces and SQLite adapters.
 Scoring accepts records and has no database, network, or web-framework dependencies.
 
-No executable package is implemented yet. See [architecture](../../docs/ARCHITECTURE.md).
+`domain.launch` implements validated recommendation inputs and results;
+`recommendation.launch.recommend` implements competitor matching, coverage-gated
+release ranking, and comparable pricing. See the [model card](../../ml/MODEL_CARD.md).
+Persistence and the broader dashboard analytics remain planned.
