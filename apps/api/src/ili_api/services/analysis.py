@@ -14,7 +14,7 @@ from ili_core.domain.launch import (
     Record,
 )
 from ili_core.recommendation.launch import MIN_SIMILARITY, recommend, similarity
-from ili_core.storage.catalog import CatalogGame, SteamCatalog
+from ili_core.storage.catalog import CatalogGame, CatalogUnavailable, SteamCatalog
 from ili_pipeline.launch import exact_release_date
 from ili_pipeline.sources.steam import (
     SteamClient,
@@ -77,9 +77,13 @@ class SteamAnalysisService:
 
     async def _analyze(self, request: AnalyzeRequest) -> AnalysisResponse:
         app_id = extract_app_id(request.steam_url)
-        meta = await run_in_threadpool(self.catalog.metadata)
         earliest = request.earliest_date or datetime.now(UTC).date()
         latest = request.latest_date or earliest + timedelta(days=89)
+        try:
+            meta = await run_in_threadpool(self.catalog.metadata)
+        except CatalogUnavailable:
+            return await self._metadata_only_report(app_id, request, earliest, latest)
+
         key = (app_id, request.country_code, earliest, latest, meta["dataset_id"])
         cached = self._cache.get(key)
         if cached and cached[0] > monotonic():
@@ -250,3 +254,75 @@ class SteamAnalysisService:
             self._cache.pop(next(iter(self._cache)))
         self._cache[key] = (monotonic() + 300, result)
         return result
+
+    async def _metadata_only_report(
+        self, app_id: int, request: AnalyzeRequest, earliest: date, latest: date
+    ) -> AnalysisResponse:
+        try:
+            async with asyncio.timeout(8):
+                live = await self.client.fetch_metadata(app_id, country_code=request.country_code)
+        except (TimeoutError, SteamUpstreamError) as exc:
+            raise CatalogUnavailable(
+                "The Steam catalog has not been imported yet, and live Steam lookup failed."
+            ) from exc
+        if live.app_type != "game":
+            raise SteamGameNotFound("Please use a full game's Steam link, not DLC or a demo.")
+
+        now = datetime.now(UTC)
+        target = GameProfile(
+            app_id=app_id,
+            name=live.name,
+            genres=[genre.name for genre in live.genres],
+            tags=[],
+            description=live.short_description or "",
+            business_model="free" if live.is_free else "premium",
+        )
+        metadata = {
+            "dataset_id": "steam-live-metadata-only",
+            "game_count": 0,
+            "future_release_count": int(live.release_date.coming_soon),
+            "source": "steam_live",
+            "source_observed_at": now.isoformat(),
+            "coverage_status": "catalog_missing",
+        }
+        report = recommend(
+            LaunchRequest(
+                game=target,
+                earliest_date=earliest,
+                latest_date=latest,
+                region=request.country_code,
+                currency=live.price.currency if live.price else "USD",
+                dataset=MarketDataset(
+                    dataset_id=metadata["dataset_id"],
+                    collected_at=now,
+                    games=[],
+                    coverage=Coverage(
+                        horizon_start=earliest,
+                        horizon_end=latest + timedelta(days=1),
+                        discovery_complete=False,
+                        discovery_method="steam_live_metadata_only",
+                        notes="The catalog database is missing, so this report only uses the "
+                        "submitted Steam page metadata.",
+                    ),
+                ),
+            ),
+            now=now,
+        )
+        report.warnings.extend(
+            [
+                "The Steam catalog has not been imported yet. Competitor matching and price "
+                "comparison need the local catalog database.",
+                "Live Steam metadata was available for the submitted game, but the report has "
+                "no comparable market sample.",
+            ]
+        )
+        return AnalysisResponse(
+            game=target,
+            target_source="steam_live_metadata_only",
+            catalog=metadata,
+            competitors=[],
+            report=report,
+            refreshed_competitor_count=0,
+            earliest_date=earliest,
+            latest_date=latest,
+        )

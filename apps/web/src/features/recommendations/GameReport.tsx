@@ -33,6 +33,20 @@ function money(value: number | null, currency: string | null): string {
   }).format(value / 100);
 }
 
+function sourceNotice(source: string): string {
+  if (source === 'steam_live_metadata_only') {
+    return 'Steam metadata loaded. Import the local catalog to unlock competitor matching and price comparisons.';
+  }
+  if (source === 'downloaded_catalog') {
+    return 'Steam lookup was unavailable. Showing your game’s downloaded catalog details.';
+  }
+  return '';
+}
+
+function genreList(genres: string[]): string {
+  return genres.length ? genres.join(', ') : 'Unknown genre';
+}
+
 export default function GameReport({ steamUrl }: { steamUrl: string }) {
   const [data, setData] = useState<Analysis | null>(null);
   const [error, setError] = useState('');
@@ -81,18 +95,47 @@ export default function GameReport({ steamUrl }: { steamUrl: string }) {
 
   const { report } = data;
   const price = report.price;
+  const notice = sourceNotice(data.target_source);
+  const isFreeToPlay = price.status === 'free_to_play';
+  const metadataOnly = data.target_source === 'steam_live_metadata_only';
+  if (metadataOnly) return <section className="live-report metadata-only-report">
+    <p className="eyebrow">STEAM PAGE FOUND</p>
+    <h2 id="report-title">{data.game.name}</h2>
+    <p className="game-description">{data.game.description.replace(/<[^>]*>/g, '')}</p>
+    <div className="metadata-facts">
+      <div><dt>Genres</dt><dd>{genreList(data.game.genres)}</dd></div>
+      <div><dt>Business model</dt><dd>{isFreeToPlay ? 'Free to play' : 'Premium or paid'}</dd></div>
+      <div><dt>Catalog games loaded</dt><dd>0</dd></div>
+    </div>
+    <div className="setup-notice">
+      <h3>Catalog database is missing</h3>
+      <p>Steam metadata loaded correctly, but competitor matching, price comparison, and launch-window advice need the local Steam catalog database. Right now the app only knows about the submitted Steam page.</p>
+      <code>python -m ili_pipeline.catalog</code>
+    </div>
+    <div className="advice-grid">
+      <article className="advice-card"><h3>Suggested price</h3>
+        <strong className="advice-value">{isFreeToPlay ? 'Free to play' : 'Not enough data'}</strong>
+        <p>{price.explanation}</p>
+      </article>
+      <article className="advice-card"><h3>Release timing</h3>
+        <strong className="advice-value">Not enough data</strong>
+        <p>We need a catalog of similar released and upcoming games before this can recommend a launch window.</p>
+      </article>
+    </div>
+  </section>;
+
   return <section className="live-report">
     <p className="eyebrow">YOUR GAME · YOUR MARKET</p>
     <h2 id="report-title">{data.game.name}</h2>
     <p className="game-description">{data.game.description.replace(/<[^>]*>/g, '')}</p>
     <div className="game-tags">{data.game.tags.slice(0, 8).map(tag => <span key={tag}>{tag}</span>)}</div>
     <p className="data-caption">Compared against {data.catalog.game_count.toLocaleString()} catalog games · {data.refreshed_competitor_count} competitor records refreshed from Steam · Prices: US market</p>
-    {data.target_source !== 'steam_live' && <p className="report-notice">Steam lookup was unavailable. Showing your game’s downloaded catalog details.</p>}
+    {notice && <p className="report-notice">{notice}</p>}
 
     <div className="advice-grid">
       <article className="advice-card"><h3>Suggested price</h3>
-        <strong className="advice-value">{price.suggested_price_minor === null ? 'More evidence needed' : money(price.suggested_price_minor, price.currency)}</strong>
-        {price.lower_price_minor !== null && <p>Comparable range: {money(price.lower_price_minor, price.currency)} – {money(price.upper_price_minor, price.currency)}</p>}
+        <strong className="advice-value">{isFreeToPlay ? 'Free to play' : price.suggested_price_minor === null ? 'More evidence needed' : money(price.suggested_price_minor, price.currency)}</strong>
+        {!isFreeToPlay && price.lower_price_minor !== null && <p>Comparable range: {money(price.lower_price_minor, price.currency)} – {money(price.upper_price_minor, price.currency)}</p>}
         <p>{price.explanation}</p><small>{price.evidence_app_ids.length} pricing comparables · {price.region} / {price.currency}</small>
       </article>
       <article className="advice-card"><h3>Release timing</h3>
