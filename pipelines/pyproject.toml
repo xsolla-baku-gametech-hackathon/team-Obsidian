@@ -1,0 +1,12 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = 'ili-pipeline'
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = ['ili-core==0.1.0', 'httpx>=0.28,<1']
+
+[tool.setuptools.packages.find]
+where = ["src"]
