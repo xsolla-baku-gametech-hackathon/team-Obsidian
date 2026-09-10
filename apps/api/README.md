@@ -18,9 +18,16 @@ After installing dependencies, import the supplied CSV once:
 The default input is `data/raw/steam/steam_games.csv`; the output is
 `data/processed/steam-catalog.sqlite`. Import is streaming and publication is atomic.
 Set `ILI_CATALOG_PATH` to override the API's default catalog location. Missing catalog
-returns 503 with instructions; a failed upstream lookup falls back to catalog details
-when present. Reports cache for five minutes. Prices are only taken from successful
-live Steam refreshes, never assigned a new timestamp from CSV import time.
+falls back to a metadata-only Steam report when live lookup succeeds; a failed upstream
+lookup falls back to catalog details when present. Reports cache for five minutes.
+Prices are only taken from successful live Steam refreshes, never assigned a new
+timestamp from CSV import time.
+
+During development, start both backend and frontend together from the repository root:
+
+```bash
+./scripts/dev.sh
+```
 
 `POST /api/v1/recommendations` accepts a game profile and validated market snapshot
 and returns competitor matches, release advice, comparable pricing, and explanations.

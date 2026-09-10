@@ -5,7 +5,13 @@ report with real catalog matches and live Steam price comparisons. The paywall i
 temporarily disabled with `REPORT_PAYWALL_ENABLED = false` in `src/app/App.tsx`.
 
 ```bash
-# First import the catalog and start the API; see apps/api/README.md.
+# Starts the FastAPI backend and Vite frontend together.
+./scripts/dev.sh
+```
+
+For frontend-only work:
+
+```bash
 cd apps/web
 npm install
 npm run dev

@@ -7,7 +7,6 @@ import pytest
 from fastapi.testclient import TestClient
 from ili_api.main import create_app
 from ili_api.services.analysis import AnalyzeRequest, SteamAnalysisService
-from ili_api.settings import Settings
 from ili_core.domain.steam import (
     SteamGameMetadata,
     SteamGenre,
@@ -131,14 +130,17 @@ def test_network_failure_preserves_catalog_results_without_invented_prices(catal
 
 
 def test_missing_catalog_and_invalid_request(tmp_path):
-    settings = Settings(catalog_path=tmp_path / "absent.sqlite")
-    with TestClient(create_app(settings=settings)) as client:
+    service = SteamAnalysisService(LiveClient(), SteamCatalog(tmp_path / "absent.sqlite"))
+    with TestClient(create_app(analysis_service=service)) as client:
         response = client.post(
             "/api/v1/steam/games/analyze",
             json={"steam_url": "https://store.steampowered.com/app/1/"},
         )
-        assert response.status_code == 503
-        assert response.json()["error"]["code"] == "catalog_unavailable"
+        assert response.status_code == 200, response.text
+        assert response.json()["target_source"] == "steam_live_metadata_only"
+        assert response.json()["catalog"]["coverage_status"] == "catalog_missing"
+        assert response.json()["competitors"] == []
+        assert response.json()["report"]["price"]["status"] == "insufficient_evidence"
         invalid = client.post(
             "/api/v1/steam/games/analyze", json={"steam_url": "https://example.com/app/1/"}
         )

@@ -10,6 +10,17 @@ Use `experiments/` for exploratory analysis and `evaluation/` for reproducible e
 scripts and reports. Serving code belongs in `packages/core/src/ili_core`, not notebooks.
 Local `artifacts/` and `runs/` are ignored; use artifact storage when model files grow.
 
+`experiments/models/model.py` is aligned with the current Steam inspection contract.
+It trains from the Kaggle catalog, but `build_features_from_inspection()` accepts the
+current nested API response for both released and upcoming Steam pages. Reviews,
+current players, and review summaries are target-building signals for historical
+released games only; they are not required for scoring upcoming games.
+
+```bash
+python ml/experiments/models/model.py --csv /path/to/steam_games.csv
+python ml/experiments/models/model.py --predict-json /path/to/inspection-response.json
+```
+
 The first main model is an explainable observed-release-count baseline with a documented
 coverage gate and deterministic ties. Add learned ranking only after defining a measurable
 target and time-respecting evaluation. Never train old launch decisions using reviews or

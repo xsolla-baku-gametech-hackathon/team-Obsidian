@@ -5,6 +5,7 @@ import pytest
 from ili_core.domain.steam import (
     SteamGameInspection,
     SteamGameMetadata,
+    SteamLiveDataAvailability,
     SteamPlatforms,
     SteamPrice,
     SteamReleaseDate,
@@ -47,6 +48,10 @@ def inspection(app_id=1):
         reviews=[],
         review_summary=SteamReviewSummary(
             total_positive=0, total_negative=0, total_reviews=0, returned_reviews=0
+        ),
+        live_data=SteamLiveDataAvailability(
+            reviews_available=True,
+            current_players_available=False,
         ),
         fetched_at=datetime.now(UTC),
     )
