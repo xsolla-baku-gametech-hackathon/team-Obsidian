@@ -2,6 +2,7 @@
 
 import asyncio
 from datetime import UTC, date, datetime, timedelta
+from pathlib import Path
 from time import monotonic
 
 from ili_core.domain.launch import (
@@ -22,6 +23,7 @@ from ili_pipeline.sources.steam import (
     SteamUpstreamError,
     extract_app_id,
 )
+from ili_pipeline.upcoming import load_snapshot
 from pydantic import Field, model_validator
 from starlette.concurrency import run_in_threadpool
 
@@ -61,19 +63,29 @@ class AnalysisResponse(Record):
     refreshed_competitor_count: int
     earliest_date: date
     latest_date: date
+    upcoming_catalog: dict = Field(default_factory=dict)
 
 
 class SteamAnalysisService:
-    def __init__(self, client: SteamClient, catalog: SteamCatalog):
+    def __init__(
+        self,
+        client: SteamClient,
+        catalog: SteamCatalog,
+        upcoming_path: Path | None = None,
+        major_path: Path | None = None,
+    ):
         self.client = client
         self.catalog = catalog
+        self.upcoming_path = upcoming_path
+        self.major_path = major_path
         self._cache: dict[tuple, tuple[float, AnalysisResponse]] = {}
         self._lock = asyncio.Lock()
 
     async def analyze(self, request: AnalyzeRequest) -> AnalysisResponse:
         # Bound upstream activity across concurrent reports in this API worker.
         async with self._lock:
-            return await self._analyze(request)
+            result = await self._analyze(request)
+            return await self._with_upcoming(result, request)
 
     async def _analyze(self, request: AnalyzeRequest) -> AnalysisResponse:
         app_id = extract_app_id(request.steam_url)
@@ -134,6 +146,8 @@ class SteamAnalysisService:
                     (game, score)
                     for game, score in ranked(all_candidates)
                     if score >= MIN_SIMILARITY
+                    and game.release_date is not None
+                    and game.release_date <= datetime.now(UTC).date()
                 ][:20],
                 [
                     (game, score)
@@ -310,10 +324,10 @@ class SteamAnalysisService:
         )
         report.warnings.extend(
             [
-                "The Steam catalog has not been imported yet. Competitor matching and price "
-                "comparison need the local catalog database.",
+                "The historical Steam catalog has not been imported yet. "
+                "Historical matching and price comparison need the local catalog database.",
                 "Live Steam metadata was available for the submitted game, but the report has "
-                "no comparable market sample.",
+                "no historical pricing sample.",
             ]
         )
         return AnalysisResponse(
@@ -326,3 +340,62 @@ class SteamAnalysisService:
             earliest_date=earliest,
             latest_date=latest,
         )
+
+    async def _with_upcoming(
+        self, result: AnalysisResponse, request: AnalyzeRequest
+    ) -> AnalysisResponse:
+        # Read on every request so a background refresh is visible without restarting the API.
+        # Deep copy protects the historical response cache from mutation.
+        result = result.model_copy(deep=True)
+        dataset = (
+            await run_in_threadpool(load_snapshot, self.upcoming_path, self.major_path)
+            if self.upcoming_path
+            else None
+        )
+        if dataset is None:
+            result.upcoming_catalog = {"status": "missing", "game_count": 0}
+            result.report.competitors = []
+            result.report.release.explanation = (
+                "The upcoming-release calendar is being prepared or is unavailable. "
+                "No launch date can be recommended until it is loaded."
+            )
+            return result
+        now = datetime.now(UTC)
+        timing = await run_in_threadpool(
+            recommend,
+            LaunchRequest(
+                game=result.game,
+                earliest_date=result.earliest_date,
+                latest_date=result.latest_date,
+                region=request.country_code,
+                dataset=dataset,
+            ),
+            now=now,
+        )
+        result.report.release = timing.release
+        result.report.competitors = timing.competitors
+        result.report.dataset_id = dataset.dataset_id
+        result.report.generated_at = now
+        result.report.warnings = list(
+            dict.fromkeys(
+                [
+                    *result.report.warnings,
+                    *timing.warnings,
+                    dataset.coverage.notes,
+                ]
+            )
+        )
+        result.report.confidence = (
+            "low" if timing.release.undated_competitor_count else timing.confidence
+        )
+        result.upcoming_catalog = {
+            "status": "ready"
+            if 0 <= (now - dataset.collected_at).total_seconds() <= 7 * 86400
+            else "stale",
+            "dataset_id": dataset.dataset_id,
+            "game_count": len(dataset.games),
+            "collected_at": dataset.collected_at.isoformat(),
+            "discovery_complete": dataset.coverage.discovery_complete,
+            "notes": dataset.coverage.notes,
+        }
+        return result

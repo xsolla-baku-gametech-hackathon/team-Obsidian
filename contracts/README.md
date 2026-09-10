@@ -94,3 +94,14 @@ recommendations. If a filter combination was not exported, disable it in snapsho
 The backend and ML engineer own schema changes together; frontend reviews wire changes.
 Additive optional fields may evolve in v1. Breaking changes require a new schema/API
 version and regenerated clients/fixtures. Never duplicate model math in contract files.
+
+## Implemented launch baseline v2
+
+`POST /steam/games/analyze` now adds `upcoming_catalog` (snapshot ID, count,
+freshness and coverage). Its legacy top-level `competitors` field remains historical
+comparables; `report.competitors` contains upcoming releases and sourced attention
+risks only. `report.release` adds `high_risk_windows` and uses score method
+`upcoming_market_pressure`. Unknown dates are reported without fabricated days.
+The model and policy versions are both v2. See `apps/api/README.md` for the current
+formula, collection lifecycle and evidence limits; the GET endpoint sketches above
+remain proposals, not the implemented POST contract.

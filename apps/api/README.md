@@ -114,3 +114,53 @@ Run checks:
 
 See the [architecture](../../docs/ARCHITECTURE.md) and
 [contracts](../../contracts/README.md) for the larger system.
+
+## Upcoming launch calendar
+
+Launch timing now uses a separate, paginated Steam upcoming-release calendar. Released
+catalog games are used only for historical similarity and pricing. The API refreshes
+`data/processed/upcoming.json` in the background on startup when missing or older than
+24 hours, then checks hourly. First collection can take several minutes; interrupted
+or rate-limited scans keep the previous snapshot. Progress is checkpointed separately
+and can resume for up to an hour; partial data is never served as a complete calendar. Snapshots older than seven days do
+not produce timing recommendations. Run one API worker for this development scheduler;
+for multiple workers disable auto-refresh and schedule the collector once externally.
+
+From the repository root, refresh manually:
+
+```bash
+PYTHONPATH=packages/core/src:pipelines/src .venv/bin/python -m ili_pipeline.upcoming
+```
+
+Configuration: `ILI_UPCOMING_PATH`, `ILI_MAJOR_RELEASES_PATH`, and
+`ILI_UPCOMING_AUTO_REFRESH=false` (for externally scheduled collection).
+
+The dashboard accepts an optional earliest/latest launch range. Both omitted means
+90 days from today; custom ranges span 7–366 days. The existing analyze endpoint returns:
+
+- `upcoming_catalog`: snapshot freshness, count and discovery coverage.
+- `report.competitors`: upcoming titles only, including broad attention risks.
+- `report.release.windows`: three non-overlapping lower-pressure alternatives.
+- `report.release.high_risk_windows`: up to three higher-pressure windows and evidence IDs.
+- `competitors`: legacy field containing historical pricing/similarity comparables.
+
+Every dated upcoming game contributes `0.25 + 2 * similarity` to its overlapping
+seven-day window. A sourced attention weight multiplies this pressure and adds
+`5 * (attention_weight - 1)` for broad audience attention, with a linear 14-day buffer before/after high-attention releases. Steam's top 20 popular-wishlist
+listing receives weight 3 as a visibility proxy, not a forecast of sales. Comparable
+follower counts are used only when present for every dated game. These are explicit
+baseline policy weights, not trained XGBoost/LightGBM predictions.
+
+Approximate and unknown dates remain unassigned. The UI shows them separately and
+labels rankings provisional. Public Steam search is regional and can change during
+pagination; it cannot establish coverage of hidden games or other PC storefronts.
+Missing calendar data never means zero competition. Saved reports preserve the
+snapshot used when they were generated; generate a new report for refreshed dates.
+
+Optional editorial major releases live in `data/config/major_releases.json` as a JSON
+array of `Competitor` records. Each needs a Steam app ID, `coming_soon: true`, source,
+observation time, exact verified PC date (`date_precision: "day"`), and
+`attention_weight` (1–20), `attention_reason`, `attention_source`. No speculative
+GTA/console dates are seeded. For existing discovered apps, only editorial attention
+fields override discovery; Steam's current date wins. An added observation must be
+no later than the snapshot timestamp and becomes stale after seven days.

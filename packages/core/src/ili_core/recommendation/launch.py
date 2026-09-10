@@ -126,7 +126,20 @@ def recommend(request: LaunchRequest, *, now: datetime | None = None) -> LaunchR
     ]
     matches = [(game, score) for game, score in matches if score >= MIN_SIMILARITY]
     matches.sort(key=lambda pair: (-pair[1], pair[0].app_id))
-    upcoming = [(game, score) for game, score in matches if game.coming_soon]
+    # Timing sees the entire upcoming market, including cross-genre attention risks.
+    upcoming = sorted(
+        [
+            (game, similarity(request.game, game))
+            for game in usable
+            if game.coming_soon
+            and game.app_id != request.game.app_id
+            and (game.release_date is None or game.release_date >= now.date())
+        ],
+        key=lambda pair: (
+            pair[0].release_date or now.date() + timedelta(days=10000),
+            pair[0].app_id,
+        ),
+    )
     undated = sum(game.release_date is None for game, _ in upcoming)
     coverage = dataset.coverage
     blockers = []
@@ -149,12 +162,17 @@ def recommend(request: LaunchRequest, *, now: datetime | None = None) -> LaunchR
     if len(usable) != len(dataset.games):
         blockers.append("The dataset contains future observations.")
     if undated:
-        blockers.append("Similar upcoming games have unknown or approximate release dates.")
+        warnings.append(
+            f"{undated} upcoming games have unknown or approximate dates; "
+            "ranking covers exact announced dates only and is provisional."
+        )
     dated = [
         (game, score)
         for game, score in upcoming
         if game.release_date is not None
-        and request.earliest_date <= game.release_date <= request.latest_date
+        and request.earliest_date - timedelta(days=14)
+        <= game.release_date
+        <= request.latest_date + timedelta(days=14)
     ]
     if not dated:
         blockers.append(
@@ -163,25 +181,40 @@ def recommend(request: LaunchRequest, *, now: datetime | None = None) -> LaunchR
         )
     # Strength is enabled only when the same signal is present for every dated competitor.
     use_strength = bool(dated) and all(game.followers is not None for game, _ in dated)
-    method = "similarity_and_followers" if use_strength else "release_count"
+    method = "upcoming_market_pressure"
     if not use_strength:
         warnings.append(
             "Comparable follower counts are unavailable; release ranking uses "
-            "observed competitor counts, without treating missing popularity as zero."
+            "market volume, similarity and sourced attention flags. Missing followers are not zero."
         )
     windows = []
+    high_risk_windows = []
     if not blockers:
         max_log = max(math.log1p(game.followers) for game, _ in dated) if use_strength else 0
         start = request.earliest_date
         while start + timedelta(days=6) <= request.latest_date:
             end = start + timedelta(days=6)
-            evidence = [(game, score) for game, score in dated if start <= game.release_date <= end]
-            score = float(len(evidence))
-            if use_strength:
-                score = sum(
-                    sim * (1 + (math.log1p(game.followers) / max_log if max_log else 0))
-                    for game, sim in evidence
+            evidence = []
+            score = 0.0
+            for game, sim in dated:
+                distance = max((start - game.release_date).days, (game.release_date - end).days, 0)
+                # Major releases compete for attention before and after launch day.
+                proximity = (
+                    1.0
+                    if distance == 0
+                    else (
+                        (15 - distance) / 15 if game.attention_weight > 1 and distance <= 14 else 0
+                    )
                 )
+                if not proximity:
+                    continue
+                evidence.append((game, sim))
+                strength = 1 + (
+                    math.log1p(game.followers) / max_log if use_strength and max_log else 0
+                )
+                base_pressure = (0.25 + 2 * sim) * game.attention_weight * strength
+                attention_pressure = 5 * (game.attention_weight - 1)
+                score += (base_pressure + attention_pressure) * proximity
             windows.append(
                 ReleaseWindow(
                     start_date=start,
@@ -190,8 +223,8 @@ def recommend(request: LaunchRequest, *, now: datetime | None = None) -> LaunchR
                     competition_score=round(score, 6),
                     observed_release_count=len(evidence),
                     evidence_app_ids=sorted(game.app_id for game, _ in evidence),
-                    explanation=f"{len(evidence)} similar announced releases "
-                    "in this seven-day window. "
+                    explanation=f"{len(evidence)} upcoming releases contribute pressure "
+                    "within this window or a major release’s 14-day attention buffer. "
                     "Lower scores indicate less observed competition, not higher predicted sales.",
                 )
             )
@@ -204,6 +237,14 @@ def recommend(request: LaunchRequest, *, now: datetime | None = None) -> LaunchR
                 rank = index
             window.rank = rank
             previous = window.competition_score
+        for window in sorted(windows, key=lambda row: (-row.competition_score, row.start_date)):
+            if window.competition_score > 0 and all(
+                window.end_date < other.start_date or window.start_date > other.end_date
+                for other in high_risk_windows
+            ):
+                high_risk_windows.append(window)
+                if len(high_risk_windows) == 3:
+                    break
         # Return distinct alternatives, retaining ties from the full ranking.
         selected = []
         for window in windows:
@@ -219,13 +260,15 @@ def recommend(request: LaunchRequest, *, now: datetime | None = None) -> LaunchR
         status="insufficient_evidence" if blockers else "ranked",
         best_date=windows[0].start_date if windows else None,
         windows=windows,
+        high_risk_windows=high_risk_windows,
         score_method=method,
         undated_competitor_count=undated,
         explanation=" ".join(blockers)
         if blockers
         else "Recommended date is the start of the lowest-scoring seven-day window. "
         "Equal scores share a rank; earlier starts break ties. "
-        "There is no learned daily sales effect.",
+        "Ranking is provisional and covers known exact dates in the observed market; "
+        "there is no learned daily sales effect.",
     )
     price = _price(request, matches, now)
     recommendations = [
@@ -243,10 +286,12 @@ def recommend(request: LaunchRequest, *, now: datetime | None = None) -> LaunchR
         [
             "Recommendations describe the supplied dataset; discovery completeness is declared by "
             "its producer and cannot be verified by the model.",
-            "Event calendars, marketing budgets, wishlists, and sales outcomes are not modeled.",
+            "Event calendars, marketing budgets, private wishlist counts "
+            "and sales outcomes are not modeled.",
             "Confidence is a data-quality label, not a calibrated probability of success.",
         ]
     )
+    risk_ids = {app_id for window in high_risk_windows for app_id in window.evidence_app_ids}
     return LaunchReport(
         dataset_id=dataset.dataset_id,
         generated_at=now,
@@ -260,8 +305,19 @@ def recommend(request: LaunchRequest, *, now: datetime | None = None) -> LaunchR
                 shared_tags=sorted(labels(request.game.tags) & labels(game.tags)),
                 release_date=game.release_date,
                 followers=game.followers,
+                release_date_raw=game.release_date_raw,
+                attention_weight=game.attention_weight,
+                attention_reason=game.attention_reason,
+                attention_source=game.attention_source,
             )
-            for game, score in matches[:20]
+            for game, score in upcoming
+            if (score >= MIN_SIMILARITY or game.attention_weight > 1 or game.app_id in risk_ids)
+            and (
+                game.release_date is None
+                or request.earliest_date - timedelta(days=14)
+                <= game.release_date
+                <= request.latest_date + timedelta(days=14)
+            )
         ],
         release=release,
         price=price,

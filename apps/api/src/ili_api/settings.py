@@ -13,6 +13,11 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:5173"
     catalog_path: Path = Path(__file__).resolve().parents[4] / "data/processed/steam-catalog.sqlite"
     user_db_path: Path = Path(__file__).resolve().parents[4] / "data/processed/users.sqlite"
+    upcoming_path: Path = Path(__file__).resolve().parents[4] / "data/processed/upcoming.json"
+    major_releases_path: Path = (
+        Path(__file__).resolve().parents[4] / "data/config/major_releases.json"
+    )
+    upcoming_auto_refresh: bool = True
     session_ttl_hours: int = 168
 
     @property
