@@ -12,6 +12,11 @@ REPO_DIR = Path(__file__).resolve().parents[1]
 VENV_DIR = REPO_DIR / ".venv"
 
 
+def npm_executable() -> str:
+    """Return the npm launcher that subprocess can execute on this platform."""
+    return "npm.cmd" if os.name == "nt" else "npm"
+
+
 def venv_python() -> Path:
     if os.name == "nt":
         return VENV_DIR / "Scripts" / "python.exe"
@@ -40,7 +45,8 @@ def main() -> None:
     if sys.version_info < (3, 11):
         raise SystemExit("Python 3.11+ is required.")
 
-    ensure_command("npm", "Install Node.js from https://nodejs.org/")
+    npm = npm_executable()
+    ensure_command(npm, "Install Node.js from https://nodejs.org/")
 
     if not venv_python().exists():
         run([sys.executable, "-m", "venv", str(VENV_DIR)])
@@ -71,7 +77,7 @@ def main() -> None:
         env["PYTHONPATH"] = os.pathsep.join(str(path) for path in paths)
         run([python, "-m", "ili_pipeline.upcoming"], env=env)
 
-    run(["npm", "install", "--prefix", "apps/web"])
+    run([npm, "install", "--prefix", "apps/web"])
 
     print(
         "\nSetup finished.\n\n"

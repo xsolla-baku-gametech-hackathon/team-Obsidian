@@ -19,7 +19,7 @@ See the [API guide](apps/api/README.md) for request examples and tests, and the
 
 ## Run The Full Project
 
-From a fresh clone:
+From a fresh clone, with Python 3.11+ and Node.js installed:
 
 ```powershell
 cd team-Obsidian
@@ -37,6 +37,20 @@ backend/pipeline/core packages, installs frontend packages, imports the historic
 Steam catalog when available, and refreshes the upcoming Steam calendar used by launch
 timing reports. The upcoming refresh uses public Steam pages and can take several
 minutes.
+
+### Fast setup
+
+To get the app running without waiting for the upcoming Steam calendar scan, use:
+
+```powershell
+cd team-Obsidian
+python scripts/setup_dev.py --skip-upcoming
+python scripts/dev.py
+```
+
+This installs all frontend and backend dependencies, but skips only the initial
+upcoming-release refresh. The API refreshes missing or stale upcoming data in the
+background after it starts.
 
 The large Steam catalog is not committed to git. To unlock historical competitor and
 price comparisons, download the Steam Games Dataset CSV and place it here before or
@@ -57,14 +71,7 @@ After adding the CSV, import it:
 
 Reports can still use live Steam metadata and the upcoming release calendar without
 the historical CSV, but price comparisons and historical similarity matches will be
-limited. If setup should skip the Steam upcoming scan, run:
-
-```powershell
-python scripts/setup_dev.py --skip-upcoming
-```
-
-The API will try to refresh missing or stale upcoming data in the background when it
-starts.
+limited.
 
 macOS and Linux developers can also use the shell wrappers:
 
