@@ -10,12 +10,16 @@ from ili_core.domain.steam import (
     SteamGameInspection,
     SteamGameMetadata,
     SteamGenre,
+    SteamLiveDataAvailability,
+    SteamMovie,
     SteamPlatforms,
     SteamPrice,
     SteamReleaseDate,
+    SteamRequirements,
     SteamReview,
     SteamReviewAuthor,
     SteamReviewSummary,
+    SteamScreenshot,
 )
 
 STORE_HOSTS = {"store.steampowered.com", "www.store.steampowered.com"}
@@ -64,6 +68,10 @@ def _integer(value: Any) -> int | None:
     return value if isinstance(value, int) and not isinstance(value, bool) else None
 
 
+def _strings(value: Any) -> list[str]:
+    return [str(item) for item in value] if isinstance(value, list) else []
+
+
 class SteamClient:
     def __init__(self, http_client: httpx.AsyncClient, retries: int = 2) -> None:
         self._http = http_client
@@ -97,26 +105,9 @@ class SteamClient:
         review_language: str = "all",
         review_count: int = 100,
     ) -> SteamGameInspection:
-        details_task = self._get_json(
+        details_payload = await self._get_json(
             "https://store.steampowered.com/api/appdetails",
             {"appids": app_id, "cc": country_code.lower(), "l": language},
-        )
-        reviews_task = self._get_json(
-            f"https://store.steampowered.com/appreviews/{app_id}",
-            {
-                "json": 1,
-                "filter": "recent",
-                "language": review_language,
-                "purchase_type": "all",
-                "num_per_page": review_count,
-            },
-        )
-        players_task = self._get_json(
-            "https://api.steampowered.com/ISteamUserStats/GetNumberOfCurrentPlayers/v1/",
-            {"appid": app_id},
-        )
-        details_payload, reviews_payload, players_payload = await asyncio.gather(
-            details_task, reviews_task, players_task
         )
 
         details_wrapper = details_payload.get(str(app_id))
@@ -126,26 +117,76 @@ class SteamClient:
         if not isinstance(details, dict):
             raise SteamUpstreamError("Steam game metadata was missing")
 
-        review_rows = reviews_payload.get("reviews", [])
-        summary = reviews_payload.get("query_summary", {})
-        player_response = players_payload.get("response", {})
-        if not isinstance(review_rows, list) or not isinstance(summary, dict):
-            raise SteamUpstreamError("Steam review data was malformed")
+        metadata = self._metadata(app_id, details)
+        review_rows: list[Any] = []
+        review_summary: SteamReviewSummary | None = None
+        current_players: int | None = None
+        unavailable_reasons: list[str] = []
+
+        if metadata.release_date.coming_soon:
+            unavailable_reasons.append("reviews are unavailable before release")
+            unavailable_reasons.append("current players are unavailable before release")
+        else:
+            reviews_task = self._get_json(
+                f"https://store.steampowered.com/appreviews/{app_id}",
+                {
+                    "json": 1,
+                    "filter": "recent",
+                    "language": review_language,
+                    "purchase_type": "all",
+                    "num_per_page": review_count,
+                },
+            )
+            players_task = self._get_json(
+                "https://api.steampowered.com/ISteamUserStats/GetNumberOfCurrentPlayers/v1/",
+                {"appid": app_id},
+            )
+            reviews_result, players_result = await asyncio.gather(
+                reviews_task, players_task, return_exceptions=True
+            )
+
+            if isinstance(reviews_result, Exception):
+                unavailable_reasons.append("Steam reviews endpoint did not return usable data")
+            else:
+                review_rows = reviews_result.get("reviews", [])
+                summary = reviews_result.get("query_summary", {})
+                if not isinstance(review_rows, list) or not isinstance(summary, dict):
+                    unavailable_reasons.append("Steam review data was malformed")
+                    review_rows = []
+                else:
+                    review_summary = SteamReviewSummary(
+                        review_score=_integer(summary.get("review_score")),
+                        review_score_description=summary.get("review_score_desc"),
+                        total_positive=int(summary.get("total_positive", 0)),
+                        total_negative=int(summary.get("total_negative", 0)),
+                        total_reviews=int(summary.get("total_reviews", 0)),
+                        returned_reviews=min(len(review_rows), review_count),
+                    )
+
+            if isinstance(players_result, Exception):
+                unavailable_reasons.append(
+                    "Steam current-player endpoint did not return usable data"
+                )
+            else:
+                player_response = players_result.get("response", {})
+                current_players = (
+                    _integer(player_response.get("player_count"))
+                    if isinstance(player_response, dict)
+                    else None
+                )
+                if current_players is None:
+                    unavailable_reasons.append("Steam current-player data was unavailable")
 
         return SteamGameInspection(
-            metadata=self._metadata(app_id, details),
+            metadata=metadata,
             reviews=[self._review(row) for row in review_rows[:review_count]],
-            review_summary=SteamReviewSummary(
-                review_score=_integer(summary.get("review_score")),
-                review_score_description=summary.get("review_score_desc"),
-                total_positive=int(summary.get("total_positive", 0)),
-                total_negative=int(summary.get("total_negative", 0)),
-                total_reviews=int(summary.get("total_reviews", 0)),
-                returned_reviews=min(len(review_rows), review_count),
+            review_summary=review_summary,
+            current_players=current_players,
+            live_data=SteamLiveDataAvailability(
+                reviews_available=review_summary is not None,
+                current_players_available=current_players is not None,
+                unavailable_reasons=unavailable_reasons,
             ),
-            current_players=_integer(player_response.get("player_count"))
-            if isinstance(player_response, dict)
-            else None,
             fetched_at=datetime.now(UTC),
         )
 
@@ -193,9 +234,77 @@ class SteamClient:
             else None,
             header_image=row.get("header_image"),
             website=row.get("website") or None,
+            screenshots=SteamClient._screenshots(row.get("screenshots")),
+            movies=SteamClient._movies(row.get("movies")),
+            supported_languages=row.get("supported_languages") or None,
+            pc_requirements=SteamClient._requirements(row.get("pc_requirements")),
+            mac_requirements=SteamClient._requirements(row.get("mac_requirements")),
+            linux_requirements=SteamClient._requirements(row.get("linux_requirements")),
+            controller_support=row.get("controller_support") or None,
+            content_descriptors=SteamClient._content_descriptors(row.get("content_descriptors")),
             metacritic_score=_integer(metacritic.get("score")),
             recommendation_count=_integer(recommendations.get("total")),
         )
+
+    @staticmethod
+    def _screenshots(value: Any) -> list[SteamScreenshot]:
+        if not isinstance(value, list):
+            return []
+        return [
+            SteamScreenshot(
+                id=_integer(item.get("id")),
+                thumbnail_url=item.get("path_thumbnail"),
+                full_url=item.get("path_full"),
+            )
+            for item in value
+            if isinstance(item, dict)
+        ]
+
+    @staticmethod
+    def _movies(value: Any) -> list[SteamMovie]:
+        if not isinstance(value, list):
+            return []
+        movies: list[SteamMovie] = []
+        for item in value:
+            if not isinstance(item, dict):
+                continue
+            webm = item.get("webm") or {}
+            mp4 = item.get("mp4") or {}
+            movies.append(
+                SteamMovie(
+                    id=_integer(item.get("id")),
+                    name=item.get("name"),
+                    thumbnail_url=item.get("thumbnail"),
+                    webm_url=webm.get("max") or webm.get("480") if isinstance(webm, dict) else None,
+                    mp4_url=mp4.get("max") or mp4.get("480") if isinstance(mp4, dict) else None,
+                    highlighted=bool(item.get("highlight")),
+                )
+            )
+        return movies
+
+    @staticmethod
+    def _requirements(value: Any) -> SteamRequirements | None:
+        if not isinstance(value, dict):
+            return None
+        minimum = value.get("minimum")
+        recommended = value.get("recommended")
+        if not minimum and not recommended:
+            return None
+        return SteamRequirements(
+            minimum=str(minimum) if minimum else None,
+            recommended=str(recommended) if recommended else None,
+        )
+
+    @staticmethod
+    def _content_descriptors(value: Any) -> list[str]:
+        if not isinstance(value, dict):
+            return []
+        notes = value.get("notes")
+        ids = value.get("ids")
+        descriptors = _strings(notes)
+        if descriptors:
+            return descriptors
+        return [str(item) for item in ids] if isinstance(ids, list) else []
 
     @staticmethod
     def _review(row: dict[str, Any]) -> SteamReview:

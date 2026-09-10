@@ -200,7 +200,14 @@
             "title": "Reviews"
           },
           "review_summary": {
-            "$ref": "#/components/schemas/SteamReviewSummary"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SteamReviewSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "current_players": {
             "anyOf": [
@@ -213,6 +220,9 @@
             ],
             "title": "Current Players"
           },
+          "live_data": {
+            "$ref": "#/components/schemas/SteamLiveDataAvailability"
+          },
           "fetched_at": {
             "type": "string",
             "format": "date-time",
@@ -223,7 +233,7 @@
         "required": [
           "metadata",
           "reviews",
-          "review_summary",
+          "live_data",
           "fetched_at"
         ],
         "title": "SteamGameInspection"
@@ -334,6 +344,79 @@
             ],
             "title": "Website"
           },
+          "screenshots": {
+            "items": {
+              "$ref": "#/components/schemas/SteamScreenshot"
+            },
+            "type": "array",
+            "title": "Screenshots"
+          },
+          "movies": {
+            "items": {
+              "$ref": "#/components/schemas/SteamMovie"
+            },
+            "type": "array",
+            "title": "Movies"
+          },
+          "supported_languages": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Supported Languages"
+          },
+          "pc_requirements": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SteamRequirements"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "mac_requirements": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SteamRequirements"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "linux_requirements": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SteamRequirements"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "controller_support": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Controller Support"
+          },
+          "content_descriptors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Content Descriptors"
+          },
           "metacritic_score": {
             "anyOf": [
               {
@@ -386,6 +469,97 @@
           "name"
         ],
         "title": "SteamGenre"
+      },
+      "SteamLiveDataAvailability": {
+        "properties": {
+          "reviews_available": {
+            "type": "boolean",
+            "title": "Reviews Available"
+          },
+          "current_players_available": {
+            "type": "boolean",
+            "title": "Current Players Available"
+          },
+          "unavailable_reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Unavailable Reasons"
+          }
+        },
+        "type": "object",
+        "required": [
+          "reviews_available",
+          "current_players_available"
+        ],
+        "title": "SteamLiveDataAvailability"
+      },
+      "SteamMovie": {
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "thumbnail_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Thumbnail Url"
+          },
+          "webm_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Webm Url"
+          },
+          "mp4_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mp4 Url"
+          },
+          "highlighted": {
+            "type": "boolean",
+            "title": "Highlighted",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "SteamMovie"
       },
       "SteamPlatforms": {
         "properties": {
@@ -459,6 +633,34 @@
           "coming_soon"
         ],
         "title": "SteamReleaseDate"
+      },
+      "SteamRequirements": {
+        "properties": {
+          "minimum": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minimum"
+          },
+          "recommended": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recommended"
+          }
+        },
+        "type": "object",
+        "title": "SteamRequirements"
       },
       "SteamReview": {
         "properties": {
@@ -680,6 +882,45 @@
           "returned_reviews"
         ],
         "title": "SteamReviewSummary"
+      },
+      "SteamScreenshot": {
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "thumbnail_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Thumbnail Url"
+          },
+          "full_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Full Url"
+          }
+        },
+        "type": "object",
+        "title": "SteamScreenshot"
       },
       "ValidationError": {
         "properties": {

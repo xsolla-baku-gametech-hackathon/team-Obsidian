@@ -1,8 +1,11 @@
 # Backend API
 
 FastAPI REST API for Indie Launch Intelligence. The first endpoint validates a Steam
-Store link, fetches game metadata, up to 100 recent reviews, and current concurrent
-players, then returns normalized JSON. Responses are cached in memory for five minutes.
+Store link, fetches normalized store-page metadata, and returns live review/player
+signals when Steam exposes them. Upcoming games are supported: the API returns fields
+such as release text, screenshots, trailers, languages, requirements, and content
+descriptors while marking reviews and current players as unavailable. Responses are
+cached in memory for five minutes.
 
 ## Run locally
 
@@ -24,7 +27,12 @@ curl -X POST 'http://127.0.0.1:8000/api/v1/steam/games/inspect' \
 
 Optional request fields are `country_code`, `language`, `review_language`, and
 `review_count` (1–100). Price values use the smallest currency unit. `current_players`
-is a point-in-time value. Recent reviews are not a statistically balanced sample.
+is a point-in-time value and is usually unavailable for upcoming games. Recent reviews
+are not a statistically balanced sample and usually do not exist before release.
+
+Upcoming-game responses keep `reviews` empty, set `review_summary` and
+`current_players` to `null`, and include `live_data.unavailable_reasons` so frontend
+and ML code can branch cleanly.
 
 Configuration uses the `ILI_` variables documented in the root `.env.example`.
 The Store metadata endpoint used by Steam is publicly reachable but not part of the
