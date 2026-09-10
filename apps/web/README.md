@@ -1,8 +1,9 @@
 # Launchpad frontend
 
-A React + TypeScript landing page: enter a Steam store game link and generate a
-report with real catalog matches and live Steam price comparisons. The paywall is
-temporarily disabled with `REPORT_PAYWALL_ENABLED = false` in `src/app/App.tsx`.
+A React + TypeScript launch workspace. Anonymous visitors see a welcome page, signed-in
+users choose a premium plan and account type, and active premium users can enter a
+Steam store game link to generate a report with real catalog matches and live Steam
+price comparisons.
 
 ```bash
 # Starts the FastAPI backend and Vite frontend together.
@@ -20,7 +21,8 @@ npm run dev
 `npm run build` checks TypeScript and creates the production build. `npm run preview`
 serves the build locally.
 
-The form validates HTTPS Steam app URLs, then calls `POST /api/v1/steam/games/analyze`.
+The report form is only shown for active premium accounts. It validates HTTPS Steam
+app URLs, then calls `POST /api/v1/steam/games/analyze` with the user's bearer token.
 The API looks up the target, finds catalog neighbors, refreshes prices, and runs the
 shared recommendation model. The dialog shows loading, error/retry, and real-result
 states; closing it cancels the browser request. If Steam is unavailable, catalog
@@ -32,7 +34,8 @@ hosted API, set `VITE_API_BASE_URL` at build time and configure API CORS accordi
 The current form uses the US market and the next 90 days. The API also supports an
 explicit date range and country code. The supplied CSV has no future releases, so
 release advice explicitly explains that upcoming data is needed. No mock results
-are shown. Checkout remains disconnected; no payment is taken.
+are shown. Checkout remains disconnected; selecting a plan updates local account
+state but does not take payment.
 
 Earlier dashboard feature components and synthetic fixtures remain available in
 `src/features` and `src/lib/api` for later integration, but are not rendered by this flow.

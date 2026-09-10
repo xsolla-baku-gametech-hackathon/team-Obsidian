@@ -32,6 +32,10 @@ class AuthUnauthorized(Exception):
     pass
 
 
+class AuthForbidden(Exception):
+    pass
+
+
 class UserStore:
     def __init__(self, path: Path, session_ttl: timedelta = timedelta(days=7)) -> None:
         self.path = path.resolve()

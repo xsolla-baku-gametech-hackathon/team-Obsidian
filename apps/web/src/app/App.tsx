@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
-import { ArrowLeft, ArrowRight, Check, Gamepad2, Link, LockKeyhole, LogOut, User, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, BarChart3, Check, Gamepad2, Link, LockKeyhole, LogOut, ShieldCheck, User, X, Youtube } from 'lucide-react';
 import GameReport from '../features/recommendations/GameReport';
 
 // Temporary preview bypass. Restore this flag when report checkout is ready.
@@ -62,6 +62,9 @@ export default function App() {
   const [authBusy, setAuthBusy] = useState(false);
   const [selectedRole, setSelectedRole] = useState<UserRole>('game_developer');
   const [youtubeChannel, setYoutubeChannel] = useState('');
+  const canUseReports = account?.subscription_status === 'active';
+  const needsPlan = account?.subscription_status === 'inactive';
+  const needsYouTube = account?.subscription_status === 'pending_youtube_verification';
 
   useEffect(() => {
     if (subscription) subscriptionTitle.current?.focus();
@@ -99,8 +102,10 @@ export default function App() {
       setAccount(session.user);
       authDialog.current?.close();
       setAuthPassword('');
-      setSubscription(true);
-      paywall.current?.showModal();
+      if (session.user.subscription_status !== 'active') {
+        setSubscription(true);
+        paywall.current?.showModal();
+      }
     } catch (cause) {
       setAuthError(cause instanceof Error ? cause.message : 'Authentication failed.');
     } finally {
@@ -165,6 +170,14 @@ export default function App() {
 
   function confirm(event: FormEvent) {
     event.preventDefault();
+    if (!account) {
+      openAuth('signup');
+      return;
+    }
+    if (!canUseReports) {
+      openSubscription('home');
+      return;
+    }
     const url = steamLink(input);
     if (!url) {
       setError('Enter a Steam store game link, like https://store.steampowered.com/app/123456/');
@@ -184,21 +197,47 @@ export default function App() {
       <div className="auth-actions">{account ? <><span className="account-chip"><User size={15} />{account.display_name || account.email}</span><button className="auth-login" type="button" onClick={logout}>Log out <LogOut size={14} /></button></> : <><button className="auth-login" type="button" onClick={() => openAuth('login')}>Log in</button><button className="primary" type="button" onClick={() => openAuth('signup')}>Sign up</button></>}</div>
     </header>
 
-    <main className="landing">
-      <div className="eyebrow">INDIE LAUNCH INTELLIGENCE</div>
-      <h1>Your game.<br />Its next big opportunity.</h1>
-      <p className="intro">Find similar games and see how your pricing compares.<br className="desktop-break" /> Start with your Steam link.</p>
-      <form className="link-form" onSubmit={confirm} noValidate>
-        <label htmlFor="steam-url">Your game's Steam store link</label>
-        <div className={`input-row ${error ? 'invalid' : ''}`}>
-          <Link size={19} aria-hidden="true" />
-          <input id="steam-url" type="url" value={input} onChange={event => { setInput(event.target.value); setError(''); }} placeholder="https://store.steampowered.com/app/…" required aria-invalid={!!error} aria-describedby={error ? 'link-error' : 'link-hint'} autoComplete="url" />
-          <button className="primary" type="submit">Generate report <ArrowRight size={17} /></button>
+    <main className={canUseReports ? 'landing workspace' : 'landing welcome'}>
+      {!account && <>
+        <div className="eyebrow">INDIE LAUNCH INTELLIGENCE</div>
+        <h1>Know the market before you launch.</h1>
+        <p className="intro">Launchpad turns Steam data into pricing context, competitor maps, and release timing evidence for indie teams and creator partners.</p>
+        <div className="welcome-actions"><button className="primary" type="button" onClick={() => openAuth('signup')}>Create free account <ArrowRight size={17} /></button><button className="secondary" type="button" onClick={() => openAuth('login')}>Log in</button></div>
+        <div className="welcome-grid">
+          <article><BarChart3 size={21} /><h2>Market reports</h2><p>Paste a Steam game link after signup and compare it against the local Steam catalog.</p></article>
+          <article><Gamepad2 size={21} /><h2>Developer plans</h2><p>Game developers unlock reports immediately after choosing a subscription plan.</p></article>
+          <article><Youtube size={21} /><h2>Creator access</h2><p>Content creators verify a YouTube channel before their premium workspace activates.</p></article>
+          <article><ShieldCheck size={21} /><h2>Secure accounts</h2><p>Passwords are hashed, sessions expire, and premium API routes require authentication.</p></article>
         </div>
-        {error ? <p id="link-error" className="error" role="alert">{error}</p> : <p id="link-hint" className="hint">Just one link. No forms, files, or game descriptions.</p>}
-      </form>
-      <div className="benefits"><span>Competitor matches</span><i /><span>Price recommendations</span><i /><span>Steam market data</span></div>
-      <aside className="home-subscription"><div><span className="eyebrow">LAUNCHPAD PLANS</span><h2>More games on the horizon?</h2><p>Get ongoing insights with a subscription. From $19/month.</p></div><button className="plans-link" onClick={() => openSubscription('home')}>Explore subscriptions <ArrowRight size={16} /></button></aside>
+      </>}
+      {account && !canUseReports && <section className="onboarding-panel">
+        <p className="eyebrow">WELCOME, {account.display_name || account.email}</p>
+        <h1>Finish your workspace setup.</h1>
+        {needsPlan && <p className="intro">Your account is ready. Choose a subscription and account type to unlock Steam reports.</p>}
+        {needsYouTube && <p className="intro">Your creator plan is selected. Verify your YouTube channel to activate premium access.</p>}
+        <div className="setup-steps">
+          <div className="done"><Check size={18} /><span>Account created</span></div>
+          <div className={needsYouTube ? 'done' : ''}><Check size={18} /><span>Subscription selected</span></div>
+          <div><Youtube size={18} /><span>{needsYouTube ? 'YouTube verification required' : 'Creator verification if needed'}</span></div>
+        </div>
+        {needsPlan && <button className="primary setup-cta" onClick={() => openSubscription('home')}>Choose plan <ArrowRight size={17} /></button>}
+        {needsYouTube && <section className="youtube-verify inline-verify"><h3>Verify your YouTube channel</h3><p>Enter a channel ID for local development. The production version will use Google OAuth.</p><div><input value={youtubeChannel} onChange={event => setYoutubeChannel(event.target.value)} placeholder="YouTube channel ID, e.g. UC…" /><button className="primary" onClick={() => void verifyYoutube()}>Verify YouTube</button></div></section>}
+      </section>}
+      {canUseReports && <>
+        <div className="eyebrow">PREMIUM WORKSPACE</div>
+        <h1>Your game.<br />Its next big opportunity.</h1>
+        <p className="intro">Find similar games and see how your pricing compares.<br className="desktop-break" /> Start with your Steam link.</p>
+        <form className="link-form" onSubmit={confirm} noValidate>
+          <label htmlFor="steam-url">Your game's Steam store link</label>
+          <div className={`input-row ${error ? 'invalid' : ''}`}>
+            <Link size={19} aria-hidden="true" />
+            <input id="steam-url" type="url" value={input} onChange={event => { setInput(event.target.value); setError(''); }} placeholder="https://store.steampowered.com/app/…" required aria-invalid={!!error} aria-describedby={error ? 'link-error' : 'link-hint'} autoComplete="url" />
+            <button className="primary" type="submit">Generate report <ArrowRight size={17} /></button>
+          </div>
+          {error ? <p id="link-error" className="error" role="alert">{error}</p> : <p id="link-hint" className="hint">Signed in as {account.email}</p>}
+        </form>
+        <div className="benefits"><span>Competitor matches</span><i /><span>Price recommendations</span><i /><span>Steam market data</span></div>
+      </>}
     </main>
 
     <footer><span>Built for independent minds.</span><span>Steam launch intelligence</span></footer>
@@ -234,7 +273,7 @@ export default function App() {
         {confirmed && <GameReport key={confirmed} steamUrl={confirmed} />}
         {REPORT_PAYWALL_ENABLED && <div className="paywall-wrap"><section className="paywall"><span className="lock"><LockKeyhole size={24} /></span><p className="eyebrow">YOUR NEXT MOVE STARTS HERE</p><h2 id="paywall-title">Unlock the full picture.</h2><p className="paywall-copy">One game. One complete report.<br className="desktop-break" /> Get the insights you need, when you need them.</p><ul><li><Check size={16} />Competitor and market insights</li><li><Check size={16} />Recommended launch windows</li><li><Check size={16} />Creators matched to your niche</li></ul><div className="single-report-price"><strong>$9<span> / report</span></strong><p>One-time payment · USD · No recurring charges</p></div><button className="primary unlock" onClick={() => setCheckoutNotice(true)}>Buy my report · $9 <ArrowRight size={17} /></button><div className="subscription-alternative"><span>Need insights more often?</span><button ref={unlockButton} className="plans-link" onClick={() => openSubscription('report')}>Or buy a subscription <ArrowRight size={14} /></button></div><p className="payment-note" role="status">{checkoutNotice ? 'Checkout is coming soon. No payment was taken.' : 'Preview pricing · No payment will be taken.'}</p></section></div>}
       </div>}
-      <div className="report-footer"><Check size={12} />{subscription ? 'Checkout is not connected. No payment will be taken.' : 'Free report access · Recommendations include their evidence and data limitations.'}</div>
+      <div className="report-footer"><Check size={12} />{subscription ? 'Checkout is not connected. No payment will be taken.' : 'Premium report access · Recommendations include their evidence and data limitations.'}</div>
     </dialog>
     <dialog ref={authDialog} className="auth-dialog" aria-labelledby="auth-title">
       <button className="close auth-close" onClick={() => authDialog.current?.close()} aria-label="Close dialog"><X size={21} /></button>

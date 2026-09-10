@@ -11,6 +11,7 @@ from ili_core.domain.steam import (
     SteamReleaseDate,
     SteamReviewSummary,
 )
+from ili_core.storage.users import UserStore
 
 
 class FakeSteamClient:
@@ -43,17 +44,37 @@ class FakeSteamClient:
         )
 
 
-def test_inspect_endpoint_and_cache() -> None:
+def premium_headers(client: TestClient) -> dict[str, str]:
+    signup = client.post(
+        "/api/v1/auth/signup",
+        json={"email": "inspect@example.com", "password": "secure-password"},
+    )
+    token = signup.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+    client.post(
+        "/api/v1/auth/subscription",
+        json={"plan": "starter", "role": "game_developer"},
+        headers=headers,
+    )
+    return headers
+
+
+def test_inspect_endpoint_and_cache(tmp_path) -> None:
     from ili_api.services.steam import SteamInspectionService
 
     fake_client = FakeSteamClient()
     service = SteamInspectionService(fake_client, cache_ttl_seconds=300)  # type: ignore[arg-type]
-    app = create_app(settings=Settings(), steam_service=service)
+    app = create_app(
+        settings=Settings(),
+        steam_service=service,
+        user_store=UserStore(tmp_path / "users.sqlite"),
+    )
 
     with TestClient(app) as client:
+        headers = premium_headers(client)
         payload = {"steam_url": "https://store.steampowered.com/app/413150/Stardew_Valley/"}
-        first = client.post("/api/v1/steam/games/inspect", json=payload)
-        second = client.post("/api/v1/steam/games/inspect", json=payload)
+        first = client.post("/api/v1/steam/games/inspect", json=payload, headers=headers)
+        second = client.post("/api/v1/steam/games/inspect", json=payload, headers=headers)
 
     assert first.status_code == 200
     assert first.json()["data"]["metadata"]["app_id"] == 413150
@@ -62,17 +83,20 @@ def test_inspect_endpoint_and_cache() -> None:
     assert fake_client.calls == 1
 
 
-def test_inspect_rejects_non_steam_url() -> None:
+def test_inspect_rejects_non_steam_url(tmp_path) -> None:
     from ili_api.services.steam import SteamInspectionService
 
     app = create_app(
         settings=Settings(),
         steam_service=SteamInspectionService(FakeSteamClient()),  # type: ignore[arg-type]
+        user_store=UserStore(tmp_path / "users.sqlite"),
     )
     with TestClient(app) as client:
+        headers = premium_headers(client)
         response = client.post(
             "/api/v1/steam/games/inspect",
             json={"steam_url": "https://example.com/app/413150/something"},
+            headers=headers,
         )
 
     assert response.status_code == 422

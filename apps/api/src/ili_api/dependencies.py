@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import Depends, Header, Request
 from ili_core.domain.auth import UserAccount
-from ili_core.storage.users import AuthUnauthorized, UserStore
+from ili_core.storage.users import AuthForbidden, AuthUnauthorized, UserStore
 
 from ili_api.services.steam import SteamInspectionService
 
@@ -29,3 +29,9 @@ def current_user(
     token: Annotated[str, Depends(bearer_token)],
 ) -> UserAccount:
     return get_user_store(request).get_user_by_token(token)
+
+
+def active_premium_user(user: Annotated[UserAccount, Depends(current_user)]) -> UserAccount:
+    if user.subscription_status != "active" or user.premium_role is None:
+        raise AuthForbidden("An active premium subscription is required.")
+    return user
