@@ -15,6 +15,12 @@ checkout, the API, and deployment remain pending.
 
 Run the frontend with `cd apps/web && npm install && npm run dev`. See the
 [frontend guide](apps/web/README.md) for build commands and integration boundaries.
+The first backend slice is implemented: a FastAPI REST endpoint accepts a Steam Store
+game link and returns normalized metadata, up to 100 recent reviews, review totals, and
+the current concurrent-player count. The dashboard, bulk dataset pipeline, sentiment,
+recommendation model, and deployment are still pending.
+
+See the [API guide](apps/api/README.md) for setup, request examples, and tests.
 
 ## Start here
 

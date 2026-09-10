@@ -14,6 +14,7 @@ obtained from `/datasets/current`, preventing a refresh from mixing versions.
 | Method and route | Input | Output |
 | --- | --- | --- |
 | `GET /health` | None | Process liveness; no upstream source calls |
+| `POST /api/v1/steam/games/inspect` | Steam Store URL, locale and review options | Live normalized metadata, recent reviews, player count, cache metadata |
 | `GET /api/v1/datasets/current` | None | Active dataset metadata; 503 if no usable dataset |
 | `GET /api/v1/segments` | `dataset_id` | Supported segment IDs, labels, mapping version |
 | `GET /api/v1/saturation` | `dataset_id`, `start_week`, `weeks` | Weekly cells for supported segments |
