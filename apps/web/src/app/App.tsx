@@ -56,13 +56,18 @@ type ReportCollection = { reports: ReportSummary[] };
 type SavedReport = ReportSummary & { payload: Analysis };
 
 async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || ''}${path}`, {
-    ...options,
-    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${import.meta.env.VITE_API_BASE_URL || ''}${path}`, {
+      ...options,
+      headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+    });
+  } catch (cause) {
+    throw new Error('API server is unavailable. Start FastAPI with ./scripts/run_api.sh or run ./scripts/dev.sh.');
+  }
   const contentType = response.headers.get('content-type') || '';
   const body = contentType.includes('application/json') ? await response.json() : null;
-  if (!response.ok) throw new Error(body?.error?.message || 'Request failed.');
+  if (!response.ok) throw new Error(body?.error?.message || 'API server is unavailable. Start FastAPI with ./scripts/run_api.sh or run ./scripts/dev.sh.');
   return body as T;
 }
 
@@ -97,6 +102,10 @@ function formatDate(value: string): string {
 export default function App() {
   const [input, setInput] = useState('');
   const [confirmed, setConfirmed] = useState('');
+  const [reportRun, setReportRun] = useState(0);
+  const [earliestDate, setEarliestDate] = useState('');
+  const [latestDate, setLatestDate] = useState('');
+  const [reportDates, setReportDates] = useState({ earliest: '', latest: '' });
   const [error, setError] = useState('');
   const [page, setPage] = useState<Page>('dashboard');
   const [reports, setReports] = useState<ReportSummary[]>([]);
@@ -272,6 +281,14 @@ export default function App() {
 
   function confirm(event: FormEvent) {
     event.preventDefault();
+    if (Boolean(earliestDate) !== Boolean(latestDate) || (earliestDate && (
+      earliestDate < new Date().toISOString().slice(0, 10) ||
+      (Date.parse(latestDate) - Date.parse(earliestDate)) / 86400000 < 6 ||
+      (Date.parse(latestDate) - Date.parse(earliestDate)) / 86400000 > 365
+    ))) {
+      setError('Choose both dates, starting today or later, with a range of 7 to 366 days.');
+      return;
+    }
     if (!account) {
       openAuth('signup');
       return;
@@ -286,6 +303,8 @@ export default function App() {
       return;
     }
     setError('');
+    setReportDates({ earliest: earliestDate, latest: latestDate });
+    setReportRun(value => value + 1);
     setConfirmed(url);
     setSelectedReport(null);
     setPage('analyze');
@@ -368,10 +387,15 @@ export default function App() {
             <input id="steam-url" type="url" value={input} onChange={event => { setInput(event.target.value); setError(''); }} placeholder="https://store.steampowered.com/app/…" required aria-invalid={!!error} aria-describedby={error ? 'link-error' : 'link-hint'} autoComplete="url" />
             <button className="primary" type="submit">Generate report <ArrowRight size={17} /></button>
           </div>
+          <div className="release-range">
+            <label>Earliest launch<input type="date" value={earliestDate} min={new Date().toISOString().slice(0, 10)} onChange={event => setEarliestDate(event.target.value)} /></label>
+            <label>Latest launch<input type="date" value={latestDate} min={earliestDate || new Date().toISOString().slice(0, 10)} onChange={event => setLatestDate(event.target.value)} /></label>
+            <p className="hint">Optional · Leave both empty to explore the next 90 days.</p>
+          </div>
           {error ? <p id="link-error" className="error" role="alert">{error}</p> : <p id="link-hint" className="hint">Reports are saved automatically to My Reports.</p>}
         </form>
       </section>
-      {confirmed ? <section className="page-panel report-output"><GameReport key={confirmed} steamUrl={confirmed} onComplete={() => void loadReports()} /></section> : <section className="empty-state analysis-empty"><Search size={24} /><p>Generate a report to see the analysis here. Recent results will stay available from My Reports.</p></section>}
+      {confirmed ? <section className="page-panel report-output"><GameReport key={`${confirmed}-${reportRun}`} steamUrl={confirmed} earliestDate={reportDates.earliest} latestDate={reportDates.latest} onComplete={() => void loadReports()} /></section> : <section className="empty-state analysis-empty"><Search size={24} /><p>Generate a report to see the analysis here. Recent results will stay available from My Reports.</p></section>}
     </>;
   }
 

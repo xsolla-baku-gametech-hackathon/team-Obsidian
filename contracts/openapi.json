@@ -658,6 +658,11 @@
             "type": "string",
             "format": "date",
             "title": "Latest Date"
+          },
+          "upcoming_catalog": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Upcoming Catalog"
           }
         },
         "additionalProperties": false,
@@ -1038,6 +1043,36 @@
             "title": "Region",
             "default": "US"
           },
+          "attention_weight": {
+            "type": "number",
+            "maximum": 20.0,
+            "minimum": 1.0,
+            "title": "Attention Weight",
+            "default": 1
+          },
+          "attention_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attention Reason"
+          },
+          "attention_source": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^https?://"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attention Source"
+          },
           "followers": {
             "anyOf": [
               {
@@ -1273,12 +1308,12 @@
           "model_version": {
             "type": "string",
             "title": "Model Version",
-            "default": "launch-baseline-v1"
+            "default": "launch-baseline-v2"
           },
           "policy_version": {
             "type": "string",
             "title": "Policy Version",
-            "default": "launch-policy-v1"
+            "default": "launch-policy-v2"
           },
           "model_type": {
             "type": "string",
@@ -1429,7 +1464,7 @@
               "$ref": "#/components/schemas/Competitor"
             },
             "type": "array",
-            "maxItems": 10000,
+            "maxItems": 50000,
             "title": "Games"
           }
         },
@@ -1493,6 +1528,44 @@
               }
             ],
             "title": "Followers"
+          },
+          "release_date_raw": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Release Date Raw"
+          },
+          "attention_weight": {
+            "type": "number",
+            "title": "Attention Weight",
+            "default": 1
+          },
+          "attention_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attention Reason"
+          },
+          "attention_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attention Source"
           }
         },
         "additionalProperties": false,
@@ -1611,14 +1684,22 @@
             "type": "array",
             "title": "Windows"
           },
+          "high_risk_windows": {
+            "items": {
+              "$ref": "#/components/schemas/ReleaseWindow"
+            },
+            "type": "array",
+            "title": "High Risk Windows"
+          },
           "score_method": {
             "type": "string",
             "enum": [
               "release_count",
-              "similarity_and_followers"
+              "similarity_and_followers",
+              "upcoming_market_pressure"
             ],
             "title": "Score Method",
-            "default": "release_count"
+            "default": "upcoming_market_pressure"
           },
           "undated_competitor_count": {
             "type": "integer",

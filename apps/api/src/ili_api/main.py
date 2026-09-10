@@ -1,6 +1,8 @@
+import asyncio
+import logging
 from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
-from datetime import timedelta
+from contextlib import asynccontextmanager, suppress
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import uuid4
 
@@ -24,6 +26,7 @@ from ili_pipeline.sources.steam import (
     SteamGameNotFound,
     SteamUpstreamError,
 )
+from ili_pipeline.upcoming import load_snapshot, refresh
 
 from ili_api.routes import auth, health, recommendations, reports, steam
 from ili_api.services.analysis import SteamAnalysisService
@@ -56,9 +59,41 @@ def create_app(
                 SteamClient(client), cache_ttl_seconds=config.steam_cache_ttl_seconds
             )
             app.state.analysis_service = analysis_service or SteamAnalysisService(
-                SteamClient(client), SteamCatalog(config.catalog_path)
+                SteamClient(client),
+                SteamCatalog(config.catalog_path),
+                config.upcoming_path,
+                config.major_releases_path,
             )
-            yield
+
+            async def refresh_upcoming():
+                while True:
+                    try:
+                        snapshot = await asyncio.to_thread(load_snapshot, config.upcoming_path)
+                        if (
+                            snapshot is None
+                            or (datetime.now(UTC) - snapshot.collected_at).total_seconds() > 86400
+                        ):
+                            await refresh(config.upcoming_path)
+                    except Exception:
+                        logging.getLogger(__name__).exception(
+                            "Upcoming refresh failed; retaining cached data"
+                        )
+                    await asyncio.sleep(3600)
+
+            task = (
+                asyncio.create_task(refresh_upcoming())
+                if config.upcoming_auto_refresh
+                and analysis_service is None
+                and steam_service is None
+                else None
+            )
+            try:
+                yield
+            finally:
+                if task:
+                    task.cancel()
+                    with suppress(asyncio.CancelledError):
+                        await task
 
     app = FastAPI(
         title="Indie Launch Intelligence API",

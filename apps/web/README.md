@@ -41,3 +41,9 @@ state but does not take payment.
 
 Earlier dashboard feature components and synthetic fixtures remain available in
 `src/features` and `src/lib/api` for later integration, but are not rendered by this flow.
+
+Reports separate **Upcoming launch competitors** and **High-risk launch windows**
+from **Historical pricing and similarity comparables**. The Steam analysis form
+supports an optional custom launch horizon; leaving both dates blank uses 90 days.
+Upcoming data refreshes in the API background and can be prepared using the collector
+command in `apps/api/README.md`. Previously saved reports remain historical snapshots.

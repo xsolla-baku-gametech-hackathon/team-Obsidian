@@ -234,3 +234,43 @@ def test_failed_import_keeps_previous_catalog(catalog, tmp_path):
     with pytest.raises(ValueError):
         import_catalog(bad, catalog.path)
     assert catalog.metadata() == before
+
+
+def test_upcoming_snapshot_drives_timing_without_historical_catalog(tmp_path):
+    from ili_core.domain.launch import Competitor, Coverage, MarketDataset
+
+    now = datetime.now(UTC)
+    path = tmp_path / "upcoming.json"
+    dataset = MarketDataset(
+        dataset_id="test-upcoming",
+        collected_at=now,
+        coverage=Coverage(
+            horizon_start=now.date(),
+            horizon_end=now.date() + timedelta(days=100),
+            discovery_complete=True,
+            discovery_method="test",
+            notes="Synthetic test",
+        ),
+        games=[
+            Competitor(
+                app_id=99,
+                name="Future rival",
+                genres=["Strategy"],
+                source="synthetic",
+                observed_at=now,
+                coming_soon=True,
+                date_precision="day",
+                release_date=now.date() + timedelta(days=10),
+            )
+        ],
+    )
+    path.write_text(dataset.model_dump_json())
+    service = SteamAnalysisService(LiveClient(), SteamCatalog(tmp_path / "missing.sqlite"), path)
+    result = asyncio.run(
+        service.analyze(AnalyzeRequest(steam_url="https://store.steampowered.com/app/1/"))
+    )
+    assert result.report.release.status == "ranked"
+    assert [game.app_id for game in result.report.competitors] == [99]
+    assert result.competitors == []
+    assert result.upcoming_catalog["game_count"] == 1
+    assert result.report.price.status == "insufficient_evidence"

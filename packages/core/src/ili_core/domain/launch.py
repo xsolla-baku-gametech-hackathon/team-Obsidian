@@ -31,11 +31,16 @@ class Competitor(GameProfile):
     regular_price_minor: int | None = Field(default=None, ge=0)
     currency: str = Field(default="USD", pattern=r"^[A-Z]{3}$")
     region: str = Field(default="US", pattern=r"^[A-Z]{2}$")
+    attention_weight: float = Field(default=1, ge=1, le=20)
+    attention_reason: str | None = None
+    attention_source: str | None = Field(default=None, pattern=r"^https?://")
     # A comparable prelaunch signal only; never substitute postlaunch player counts.
     followers: int | None = Field(default=None, ge=0)
 
     @model_validator(mode="after")
     def exact_dates(self) -> Self:
+        if self.attention_weight > 1 and not (self.attention_source and self.attention_reason):
+            raise ValueError("Elevated attention requires a source URL and reason")
         if (self.date_precision == "day") != (self.release_date is not None):
             raise ValueError("Only day-precision releases may have a release_date")
         return self
@@ -59,7 +64,7 @@ class MarketDataset(Record):
     dataset_id: str = Field(min_length=1, max_length=200)
     collected_at: AwareDatetime
     coverage: Coverage
-    games: list[Competitor] = Field(max_length=10000)
+    games: list[Competitor] = Field(max_length=50000)
 
     @model_validator(mode="after")
     def unique_observations(self) -> Self:
@@ -95,6 +100,10 @@ class MatchedCompetitor(Record):
     shared_tags: list[str]
     release_date: date | None
     followers: int | None
+    release_date_raw: str | None = None
+    attention_weight: float = 1
+    attention_reason: str | None = None
+    attention_source: str | None = None
 
 
 class ReleaseWindow(Record):
@@ -111,7 +120,10 @@ class ReleaseAdvice(Record):
     status: Literal["ranked", "insufficient_evidence"]
     best_date: date | None = None
     windows: list[ReleaseWindow] = Field(default_factory=list)
-    score_method: Literal["release_count", "similarity_and_followers"] = "release_count"
+    high_risk_windows: list[ReleaseWindow] = Field(default_factory=list)
+    score_method: Literal[
+        "release_count", "similarity_and_followers", "upcoming_market_pressure"
+    ] = "upcoming_market_pressure"
     undated_competitor_count: int = 0
     explanation: str
 
@@ -128,8 +140,8 @@ class PriceAdvice(Record):
 
 
 class LaunchReport(Record):
-    model_version: str = "launch-baseline-v1"
-    policy_version: str = "launch-policy-v1"
+    model_version: str = "launch-baseline-v2"
+    policy_version: str = "launch-policy-v2"
     model_type: Literal["explainable_baseline"] = "explainable_baseline"
     dataset_id: str
     generated_at: AwareDatetime

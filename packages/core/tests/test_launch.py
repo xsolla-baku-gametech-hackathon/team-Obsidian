@@ -102,10 +102,10 @@ def test_abstention(condition):
 
 def test_popularity_only_when_comparable_for_every_competitor():
     games = [competitor(1, followers=100000), competitor(2, release_date=date(2026, 9, 21))]
-    assert recommend(request(games), now=NOW).release.score_method == "release_count"
+    assert recommend(request(games), now=NOW).release.score_method == "upcoming_market_pressure"
     games[1].followers = 10
     result = recommend(request(games, latest_date=date(2026, 9, 23)), now=NOW)
-    assert result.release.score_method == "similarity_and_followers"
+    assert result.release.score_method == "upcoming_market_pressure"
     # The smaller competitor's week beats the more popular competitor's week.
     assert result.release.best_date == date(2026, 9, 15)
 
@@ -179,3 +179,74 @@ def test_invalid_input_is_rejected():
         request(latest_date=date(2026, 9, 11))
     with pytest.raises(ValidationError):
         competitor(observed_at=datetime(2026, 9, 10))
+
+
+def test_major_cross_genre_release_penalizes_adjacent_weeks():
+    major = competitor(
+        99,
+        genres=["Racing"],
+        tags=["Driving"],
+        attention_weight=10,
+        attention_reason="Verified major PC launch",
+        attention_source="https://example.com/pc",
+        release_date=date(2026, 9, 16),
+    )
+    result = recommend(request([major]), now=NOW)
+    assert result.release.status == "ranked"
+    assert result.release.best_date > date(2026, 9, 30)
+    assert result.competitors[0].app_id == 99
+    assert result.competitors[0].similarity == 0
+    assert 99 in result.release.high_risk_windows[0].evidence_app_ids
+    assert result.release.high_risk_windows[0].competition_score > 0
+
+
+def test_historical_games_never_become_launch_competitors():
+    result = recommend(request(price_games() + [competitor(99)]), now=NOW)
+    assert [item.app_id for item in result.competitors] == [99]
+    assert result.price.status == "recommended"
+    assert all(set(window.evidence_app_ids) <= {99} for window in result.release.high_risk_windows)
+
+
+def test_unknown_dates_warn_without_inventing_a_day():
+    result = recommend(
+        request(
+            [
+                competitor(1),
+                competitor(
+                    2, release_date=None, date_precision="quarter", release_date_raw="Q4 2026"
+                ),
+            ]
+        ),
+        now=NOW,
+    )
+    assert result.release.status == "ranked"
+    assert result.release.undated_competitor_count == 1
+    assert result.competitors[0].release_date is not None
+    assert result.competitors[1].release_date is None
+    assert all(2 not in window.evidence_app_ids for window in result.release.high_risk_windows)
+
+
+def test_unrelated_upcoming_volume_is_scored():
+    result = recommend(request([competitor(99, genres=["Racing"], tags=["Driving"])]), now=NOW)
+    assert result.release.status == "ranked"
+    assert result.release.high_risk_windows[0].competition_score == 0.25
+
+
+def test_major_release_outweighs_several_unrelated_small_launches():
+    games = [
+        competitor(
+            99,
+            genres=["Racing"],
+            tags=["Driving"],
+            attention_weight=10,
+            attention_reason="Verified major PC launch",
+            attention_source="https://example.com/pc",
+            release_date=date(2026, 9, 12),
+        )
+    ] + [
+        competitor(i, genres=["Puzzle"], tags=[], release_date=date(2026, 10, 1))
+        for i in range(10, 20)
+    ]
+    result = recommend(request(games), now=NOW)
+    assert result.release.best_date > date(2026, 9, 26)
+    assert result.release.high_risk_windows[0].competition_score > 40
