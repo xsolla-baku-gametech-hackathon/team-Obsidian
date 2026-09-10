@@ -21,11 +21,10 @@ See the [API guide](apps/api/README.md) for request examples and tests, and the
 
 From a fresh clone:
 
-```bash
+```powershell
 cd team-Obsidian
-chmod +x scripts/setup_dev.sh scripts/dev.sh scripts/run_api.sh
-./scripts/setup_dev.sh
-./scripts/dev.sh
+python scripts/setup_dev.py
+python scripts/dev.py
 ```
 
 Then open:
@@ -33,7 +32,7 @@ Then open:
 - Frontend: `http://localhost:5173`
 - API docs: `http://127.0.0.1:8000/docs`
 
-`scripts/setup_dev.sh` creates the Python virtual environment, installs the editable
+`scripts/setup_dev.py` creates the Python virtual environment, installs the editable
 backend/pipeline/core packages, installs frontend packages, imports the historical
 Steam catalog when available, and refreshes the upcoming Steam calendar used by launch
 timing reports. The upcoming refresh uses public Steam pages and can take several
@@ -58,9 +57,21 @@ After adding the CSV, import it:
 
 Reports can still use live Steam metadata and the upcoming release calendar without
 the historical CSV, but price comparisons and historical similarity matches will be
-limited. If setup should skip the Steam upcoming scan, run
-`SKIP_UPCOMING=1 ./scripts/setup_dev.sh`; the API will try to refresh missing or stale
-upcoming data in the background when it starts.
+limited. If setup should skip the Steam upcoming scan, run:
+
+```powershell
+python scripts/setup_dev.py --skip-upcoming
+```
+
+The API will try to refresh missing or stale upcoming data in the background when it
+starts.
+
+macOS and Linux developers can also use the shell wrappers:
+
+```bash
+./scripts/setup_dev.sh
+./scripts/dev.sh
+```
 
 ## Start here
 
