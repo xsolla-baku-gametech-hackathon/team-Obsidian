@@ -1,8 +1,43 @@
 # Backend API
 
-Planned FastAPI application using the `ili_api` Python source layout. Routes validate
-and delegate to services, which use core repositories and scoring. The future `llm`
-adapter stays optional and server-side. Dashboard reads do not trigger ingestion.
+FastAPI REST API for Indie Launch Intelligence. The first endpoint validates a Steam
+Store link, fetches game metadata, up to 100 recent reviews, and current concurrent
+players, then returns normalized JSON. Responses are cached in memory for five minutes.
 
-This is a directory scaffold; manifests and application code are pending. See
-[architecture](../../docs/ARCHITECTURE.md) and [contracts](../../contracts/README.md).
+## Run locally
+
+From the repository root:
+
+```bash
+python3 -m venv .venv
+.venv/bin/python -m pip install -e packages/core -e pipelines -e 'apps/api[dev]'
+./scripts/run_api.sh
+```
+
+Open `http://127.0.0.1:8000/docs` for Swagger UI. Inspect a game with:
+
+```bash
+curl -X POST 'http://127.0.0.1:8000/api/v1/steam/games/inspect' \
+  -H 'Content-Type: application/json' \
+  -d '{"steam_url":"https://store.steampowered.com/app/413150/Stardew_Valley/"}'
+```
+
+Optional request fields are `country_code`, `language`, `review_language`, and
+`review_count` (1–100). Price values use the smallest currency unit. `current_players`
+is a point-in-time value. Recent reviews are not a statistically balanced sample.
+
+Configuration uses the `ILI_` variables documented in the root `.env.example`.
+The Store metadata endpoint used by Steam is publicly reachable but not part of the
+documented Steamworks Web API, so the adapter isolates that dependency. The review
+endpoint and current-player API are Steam-documented services.
+
+Run checks:
+
+```bash
+.venv/bin/ruff check apps/api pipelines packages/core
+.venv/bin/pytest
+.venv/bin/python scripts/export_openapi.py
+```
+
+See the [architecture](../../docs/ARCHITECTURE.md) and
+[contracts](../../contracts/README.md) for the larger system.

@@ -1,7 +1,8 @@
 # Indie Launch Intelligence architecture
 
-Status: agreed starting proposal and directory scaffold; application code, manifests,
-datasets, deployment files, and generated clients are still to be implemented.
+Status: the Steam game-inspection API and Python package manifests are implemented.
+Bulk datasets, dashboard, analysis/model stages, deployment files, and generated
+frontend clients are still to be implemented.
 
 ## System shape
 
