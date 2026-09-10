@@ -1,0 +1,4 @@
+import { Sparkles, ArrowUpRight } from "lucide-react";
+import { recommendations } from "../../lib/api/demo";
+import type { Segment } from "../../lib/api/demo";
+export default function LaunchCard({segment, onExplore}: {segment: Segment; onExplore: () => void}) { const recommendation = recommendations[segment]; return <section className="recommendation"><div className="rec-eyebrow"><Sparkles size={15}/>YOUR WINDOW OF OPPORTUNITY</div><p className="rec-intro">A little less noise.<br/>More room for your game.</p><div className="rec-date">{recommendation.week}<span>2026</span></div><p className="rec-body">With <strong>{recommendation.count} releases</strong> in this demo week, your {segment.toLowerCase()} game has the quietest window in the sample.</p><div className="rec-footer"><span><span className="status-dot"/>Illustrative recommendation</span><button aria-label="Explore recommended week" onClick={onExplore}><ArrowUpRight size={20}/></button></div></section>; }
