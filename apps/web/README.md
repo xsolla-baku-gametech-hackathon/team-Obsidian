@@ -1,9 +1,11 @@
 # Launchpad frontend
 
-A simple React + TypeScript landing page: enter a Steam store game link and confirm
-it to open a large report dialog with blurred placeholders behind a paywall card.
+A React + TypeScript landing page: enter a Steam store game link and generate a
+report with real catalog matches and live Steam price comparisons. The paywall is
+temporarily disabled with `REPORT_PAYWALL_ENABLED = false` in `src/app/App.tsx`.
 
 ```bash
+# First import the catalog and start the API; see apps/api/README.md.
 cd apps/web
 npm install
 npm run dev
@@ -12,16 +14,19 @@ npm run dev
 `npm run build` checks TypeScript and creates the production build. `npm run preview`
 serves the build locally.
 
-The form validates HTTPS Steam store app URLs and normalizes the app ID link. This
-confirms URL format only; game existence is not checked. Invalid links show inline
-errors. The native dialog supports keyboard focus containment, Escape, and closing
-back to the form. Layout adapts to mobile screens.
+The form validates HTTPS Steam app URLs, then calls `POST /api/v1/steam/games/analyze`.
+The API looks up the target, finds catalog neighbors, refreshes prices, and runs the
+shared recommendation model. The dialog shows loading, error/retry, and real-result
+states; closing it cancels the browser request. If Steam is unavailable, catalog
+matches can still appear with an explicit source warning and no invented prices.
 
-This is a frontend preview: results are decorative placeholders and checkout is not
-connected. The unlock button explains that paid reports are coming soon. No price is
-invented and no payment is taken. A production integration must verify games, generate
-reports, authorize paid access on the server, and connect checkout before serving real
-results. Google Fonts are optional; system sans-serif works offline.
+Vite development and preview servers proxy `/api` to `http://127.0.0.1:8000`. Restart
+Vite if it was started before this proxy configuration existed. For a separately
+hosted API, set `VITE_API_BASE_URL` at build time and configure API CORS accordingly.
+The current form uses the US market and the next 90 days. The API also supports an
+explicit date range and country code. The supplied CSV has no future releases, so
+release advice explicitly explains that upcoming data is needed. No mock results
+are shown. Checkout remains disconnected; no payment is taken.
 
 Earlier dashboard feature components and synthetic fixtures remain available in
 `src/features` and `src/lib/api` for later integration, but are not rendered by this flow.

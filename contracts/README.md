@@ -1,8 +1,8 @@
 # Integration contracts — proposal v1
 
-Agree on these contracts before parallel implementation. These are design specifications,
-not running endpoints. Generate `openapi.json` from API schemas once routes exist and
-commit the export; generate `apps/web/src/lib/api/generated.ts` from that export. CI
+The health, Steam inspection, and snapshot-input recommendation routes are implemented;
+the dataset-backed GET routes remain design specifications. Generate `openapi.json`
+from API schemas and commit the export; generate frontend types from that export. CI
 should detect stale generated files. Generate the snapshot schema from canonical models.
 Use FastAPI/Pydantic wire models at the API boundary and core domain records internally.
 
@@ -15,6 +15,8 @@ obtained from `/datasets/current`, preventing a refresh from mixing versions.
 | --- | --- | --- |
 | `GET /health` | None | Process liveness; no upstream source calls |
 | `POST /api/v1/steam/games/inspect` | Steam Store URL, locale and review options | Live normalized metadata, recent reviews, player count, cache metadata |
+| `POST /api/v1/steam/games/analyze` (implemented) | Steam URL, optional country and date range | Game profile, catalog matches, refreshed prices and model report |
+| `POST /api/v1/recommendations` (implemented) | Game profile, dataset, dates, currency and region | Direct `LaunchReport`: competitors, release advice, price advice and warnings |
 | `GET /api/v1/datasets/current` | None | Active dataset metadata; 503 if no usable dataset |
 | `GET /api/v1/segments` | `dataset_id` | Supported segment IDs, labels, mapping version |
 | `GET /api/v1/saturation` | `dataset_id`, `start_week`, `weeks` | Weekly cells for supported segments |
@@ -22,7 +24,9 @@ obtained from `/datasets/current`, preventing a refresh from mixing versions.
 | `GET /api/v1/recommendations` | `dataset_id`, `segment_id`, `start_week`, `weeks` | Ranked windows or insufficient-evidence result |
 
 MVP supports eight weeks. `start_week` is an ISO `YYYY-MM-DD` Monday; reject rather
-than silently move other dates. Weeks are half-open Monday-to-Monday intervals.
+than silently move other dates. These GET dashboard conventions do not apply to the
+implemented snapshot-input POST endpoint; see the [model card](../ml/MODEL_CARD.md).
+Dashboard weeks are half-open Monday-to-Monday intervals.
 Game release dates remain source calendar dates; observation timestamps are UTC ISO
 8601. A game belongs to a week only when its date precision is `day`.
 
@@ -52,7 +56,7 @@ observed competition, not a normalized success probability. A later score formul
 its own model version and explicit scale. Abstained results have `best_week: null` and
 no ranked windows, while heatmap observations remain visible.
 
-Every market response uses `{data, meta}`. `meta` includes dataset metadata,
+Planned GET market responses use `{data, meta}`. `meta` includes dataset metadata,
 `generated_at`, and `delivery_mode` (`api/snapshot`); scoring responses also identify
 model/policy versions. Freshness is derived from `collected_at` and configured policy,
 not from delivery mode. No fictional example games are included in this scaffold.

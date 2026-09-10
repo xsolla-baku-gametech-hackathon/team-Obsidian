@@ -1,4 +1,5 @@
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -10,6 +11,7 @@ class Settings(BaseSettings):
     steam_cache_ttl_seconds: int = 300
     steam_user_agent: str = "IndieLaunchIntelligence/0.1"
     cors_origins: str = "http://localhost:5173"
+    catalog_path: Path = Path(__file__).resolve().parents[4] / "data/processed/steam-catalog.sqlite"
 
     @property
     def cors_origin_list(self) -> list[str]:

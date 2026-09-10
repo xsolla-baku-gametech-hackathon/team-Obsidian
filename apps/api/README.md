@@ -1,5 +1,32 @@
 # Backend API
 
+The website uses `POST /api/v1/steam/games/analyze` with just
+`{"steam_url":"https://store.steampowered.com/app/413150/"}`. This route reads the
+indexed catalog, looks up the game on Steam, matches similar titles, refreshes up to
+20 competitor records, and runs the model. It returns catalog provenance, matched
+games, regular prices, price advice, release advice, and explicit data limitations.
+Optional inputs: uppercase `country_code` (default US), `earliest_date` and
+`latest_date` (both required if overriding the default next 90 days).
+
+After installing dependencies, import the supplied CSV once:
+
+```bash
+.venv/bin/python -m ili_pipeline.catalog
+./scripts/run_api.sh
+```
+
+The default input is `data/raw/steam/steam_games.csv`; the output is
+`data/processed/steam-catalog.sqlite`. Import is streaming and publication is atomic.
+Set `ILI_CATALOG_PATH` to override the API's default catalog location. Missing catalog
+returns 503 with instructions; a failed upstream lookup falls back to catalog details
+when present. Reports cache for five minutes. Prices are only taken from successful
+live Steam refreshes, never assigned a new timestamp from CSV import time.
+
+`POST /api/v1/recommendations` accepts a game profile and validated market snapshot
+and returns competitor matches, release advice, comparable pricing, and explanations.
+See the [model card](../../ml/MODEL_CARD.md) for collection and request instructions.
+This endpoint uses local inference without Steam or LLM network calls.
+
 FastAPI REST API for Indie Launch Intelligence. The first endpoint validates a Steam
 Store link, fetches normalized store-page metadata, and returns live review/player
 signals when Steam exposes them. Upcoming games are supported: the API returns fields

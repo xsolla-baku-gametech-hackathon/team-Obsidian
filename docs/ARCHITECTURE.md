@@ -1,8 +1,11 @@
 # Indie Launch Intelligence architecture
 
 Status: the Steam game-inspection API and Python package manifests are implemented.
-Bulk datasets, dashboard, analysis/model stages, deployment files, and generated
-frontend clients are still to be implemented.
+The snapshot-input baseline, recommendation POST endpoint, selected-app Steam CLI,
+CSV-to-SQLite catalog, and frontend Steam-link report flow are also implemented;
+see the [model card](../ml/MODEL_CARD.md).
+Bulk upcoming discovery, versioned dashboard datasets, trained models, deployment
+files, and generated frontend clients are still to be implemented.
 
 ## System shape
 
