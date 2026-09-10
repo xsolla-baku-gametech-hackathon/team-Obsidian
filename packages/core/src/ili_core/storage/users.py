@@ -1,6 +1,7 @@
 """SQLite-backed user and session store."""
 
 import hashlib
+import json
 import secrets
 import sqlite3
 from contextlib import closing
@@ -18,6 +19,7 @@ from ili_core.domain.auth import (
     UserAccount,
     UserRole,
 )
+from ili_core.domain.reports import ReportSummary, SavedReport
 
 
 class AuthConflict(Exception):
@@ -33,6 +35,10 @@ class AuthUnauthorized(Exception):
 
 
 class AuthForbidden(Exception):
+    pass
+
+
+class ReportNotFound(Exception):
     pass
 
 
@@ -81,6 +87,22 @@ class UserStore:
                 );
                 CREATE INDEX IF NOT EXISTS sessions_user_id ON sessions(user_id);
                 CREATE INDEX IF NOT EXISTS sessions_expires_at ON sessions(expires_at);
+                CREATE TABLE IF NOT EXISTS user_reports (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    steam_url TEXT NOT NULL,
+                    app_id INTEGER NOT NULL,
+                    game_name TEXT NOT NULL,
+                    target_source TEXT NOT NULL,
+                    suggested_price_minor INTEGER,
+                    price_currency TEXT,
+                    release_status TEXT NOT NULL,
+                    competitor_count INTEGER NOT NULL,
+                    payload_json TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS user_reports_user_created
+                    ON user_reports(user_id, created_at DESC);
                 """
             )
 
@@ -223,6 +245,76 @@ class UserStore:
             raise AuthUnauthorized("Authentication is required.")
         return user
 
+    def save_report(
+        self, *, user_id: int, steam_url: str, report_payload: dict[str, Any]
+    ) -> SavedReport:
+        now = self._now()
+        game = report_payload["game"]
+        report = report_payload["report"]
+        price = report["price"]
+        release = report["release"]
+        competitor_count = len(report_payload.get("competitors", []))
+        with closing(self._connect()) as db:
+            cursor = db.execute(
+                """
+                INSERT INTO user_reports (
+                    user_id, steam_url, app_id, game_name, target_source,
+                    suggested_price_minor, price_currency, release_status,
+                    competitor_count, payload_json, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    user_id,
+                    steam_url,
+                    int(game["app_id"]),
+                    str(game["name"]),
+                    str(report_payload["target_source"]),
+                    price.get("suggested_price_minor"),
+                    price.get("currency"),
+                    str(release["status"]),
+                    competitor_count,
+                    json.dumps(report_payload, separators=(",", ":")),
+                    now,
+                ),
+            )
+            db.commit()
+            report_id = int(cursor.lastrowid)
+        return self.get_report(user_id=user_id, report_id=report_id)
+
+    def list_reports(self, *, user_id: int, limit: int = 50) -> list[ReportSummary]:
+        with closing(self._connect()) as db:
+            rows = db.execute(
+                """
+                SELECT id, steam_url, app_id, game_name, target_source,
+                    suggested_price_minor, price_currency, release_status,
+                    competitor_count, created_at
+                FROM user_reports
+                WHERE user_id = ?
+                ORDER BY created_at DESC, id DESC
+                LIMIT ?
+                """,
+                (user_id, limit),
+            ).fetchall()
+        return [self._report_summary(row) for row in rows]
+
+    def get_report(self, *, user_id: int, report_id: int) -> SavedReport:
+        with closing(self._connect()) as db:
+            row = db.execute(
+                """
+                SELECT id, steam_url, app_id, game_name, target_source,
+                    suggested_price_minor, price_currency, release_status,
+                    competitor_count, payload_json, created_at
+                FROM user_reports
+                WHERE id = ? AND user_id = ?
+                """,
+                (report_id, user_id),
+            ).fetchone()
+        if row is None:
+            raise ReportNotFound("Report was not found.")
+        summary = self._report_summary(row)
+        return SavedReport(**summary.model_dump(), payload=json.loads(row["payload_json"]))
+
     @staticmethod
     def _now() -> str:
         return datetime.now(UTC).isoformat()
@@ -249,4 +341,19 @@ class UserStore:
             youtube_verified_at=row["youtube_verified_at"],
             created_at=row["created_at"],
             updated_at=row["updated_at"],
+        )
+
+    @staticmethod
+    def _report_summary(row: sqlite3.Row | dict[str, Any]) -> ReportSummary:
+        return ReportSummary(
+            id=int(row["id"]),
+            steam_url=str(row["steam_url"]),
+            app_id=int(row["app_id"]),
+            game_name=str(row["game_name"]),
+            target_source=str(row["target_source"]),
+            suggested_price_minor=row["suggested_price_minor"],
+            price_currency=row["price_currency"],
+            release_status=str(row["release_status"]),
+            competitor_count=int(row["competitor_count"]),
+            created_at=row["created_at"],
         )

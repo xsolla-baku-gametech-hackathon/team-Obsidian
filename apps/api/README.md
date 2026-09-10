@@ -38,6 +38,11 @@ pricing, and explanations. See the [model card](../../ml/MODEL_CARD.md) for coll
 and request instructions. This endpoint uses local inference without Steam or LLM
 network calls.
 
+Generated reports are saved automatically to the current user's report history.
+`GET /api/v1/reports` returns saved report summaries, and
+`GET /api/v1/reports/{report_id}` returns the full stored report payload. Report IDs
+are user-scoped; another account receives `404` for a report it does not own.
+
 ## Auth and subscriptions
 
 Accounts start without a role. Users sign up or log in normally, then select a paid

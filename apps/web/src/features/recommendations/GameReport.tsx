@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { ArrowRight, RefreshCw } from 'lucide-react';
 
 type Profile = { app_id: number; name: string; genres: string[]; tags: string[]; description: string };
-type Analysis = {
+export type Analysis = {
   game: Profile;
   target_source: string;
   catalog: { game_count: number; dataset_id: string; future_release_count: number };
@@ -47,7 +47,7 @@ function genreList(genres: string[]): string {
   return genres.length ? genres.join(', ') : 'Unknown genre';
 }
 
-export default function GameReport({ steamUrl }: { steamUrl: string }) {
+export default function GameReport({ steamUrl, onComplete }: { steamUrl: string; onComplete?: (data: Analysis) => void }) {
   const [data, setData] = useState<Analysis | null>(null);
   const [error, setError] = useState('');
   const [attempt, setAttempt] = useState(0);
@@ -74,7 +74,10 @@ export default function GameReport({ steamUrl }: { steamUrl: string }) {
         if (!result.game || !result.report || !Array.isArray(result.competitors)) {
           throw new Error('The report service returned an incomplete response. Please try again.');
         }
-        if (active) setData(result);
+        if (active) {
+          setData(result);
+          onComplete?.(result);
+        }
       } catch (cause) {
         if (active) setError(controller.signal.aborted
           ? 'The report took too long. Please try again.'
@@ -95,6 +98,10 @@ export default function GameReport({ steamUrl }: { steamUrl: string }) {
     <p role="status">Looking up your game, finding similar titles, and checking current Steam prices. This can take about 30 seconds.</p>
   </section>;
 
+  return <ReportView data={data} />;
+}
+
+export function ReportView({ data }: { data: Analysis }) {
   const { report } = data;
   const price = report.price;
   const notice = sourceNotice(data.target_source);
