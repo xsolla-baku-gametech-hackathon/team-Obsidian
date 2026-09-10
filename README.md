@@ -9,9 +9,12 @@ data with a cached offline fallback. It provides market context, not success pre
 
 ## Repository status
 
-This repository contains the architecture and tracked directory scaffold. The scraper,
-API, model, dashboard, datasets, dependency manifests, and deployment are not implemented
-yet. There are no installation or application launch commands at this stage.
+The first backend slice is implemented: a FastAPI REST endpoint accepts a Steam Store
+game link and returns normalized metadata, up to 100 recent reviews, review totals, and
+the current concurrent-player count. The dashboard, bulk dataset pipeline, sentiment,
+recommendation model, and deployment are still pending.
+
+See the [API guide](apps/api/README.md) for setup, request examples, and tests.
 
 ## Start here
 

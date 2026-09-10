@@ -1,0 +1,726 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Indie Launch Intelligence API",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Health",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object",
+                  "title": "Response Health Health Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/steam/games/inspect": {
+      "post": {
+        "tags": [
+          "steam"
+        ],
+        "summary": "Inspect Game",
+        "operationId": "inspect_game_api_v1_steam_games_inspect_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InspectSteamGameRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InspectSteamGameResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "InspectSteamGameRequest": {
+        "properties": {
+          "steam_url": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 20,
+            "title": "Steam Url"
+          },
+          "country_code": {
+            "type": "string",
+            "pattern": "^[A-Za-z]{2}$",
+            "title": "Country Code",
+            "default": "US"
+          },
+          "language": {
+            "type": "string",
+            "maxLength": 32,
+            "minLength": 2,
+            "title": "Language",
+            "default": "english"
+          },
+          "review_language": {
+            "type": "string",
+            "maxLength": 32,
+            "minLength": 2,
+            "title": "Review Language",
+            "default": "all"
+          },
+          "review_count": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Review Count",
+            "default": 100
+          }
+        },
+        "type": "object",
+        "required": [
+          "steam_url"
+        ],
+        "title": "InspectSteamGameRequest"
+      },
+      "InspectSteamGameResponse": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/SteamGameInspection"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/InspectionMeta"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "InspectSteamGameResponse"
+      },
+      "InspectionMeta": {
+        "properties": {
+          "source": {
+            "type": "string",
+            "const": "steam",
+            "title": "Source",
+            "default": "steam"
+          },
+          "cache_hit": {
+            "type": "boolean",
+            "title": "Cache Hit"
+          },
+          "cache_ttl_seconds": {
+            "type": "integer",
+            "title": "Cache Ttl Seconds"
+          }
+        },
+        "type": "object",
+        "required": [
+          "cache_hit",
+          "cache_ttl_seconds"
+        ],
+        "title": "InspectionMeta"
+      },
+      "SteamCategory": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "SteamCategory"
+      },
+      "SteamGameInspection": {
+        "properties": {
+          "metadata": {
+            "$ref": "#/components/schemas/SteamGameMetadata"
+          },
+          "reviews": {
+            "items": {
+              "$ref": "#/components/schemas/SteamReview"
+            },
+            "type": "array",
+            "title": "Reviews"
+          },
+          "review_summary": {
+            "$ref": "#/components/schemas/SteamReviewSummary"
+          },
+          "current_players": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Players"
+          },
+          "fetched_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Fetched At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "metadata",
+          "reviews",
+          "review_summary",
+          "fetched_at"
+        ],
+        "title": "SteamGameInspection"
+      },
+      "SteamGameMetadata": {
+        "properties": {
+          "app_id": {
+            "type": "integer",
+            "title": "App Id"
+          },
+          "store_url": {
+            "type": "string",
+            "title": "Store Url"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "app_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "App Type"
+          },
+          "short_description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Short Description"
+          },
+          "developers": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Developers"
+          },
+          "publishers": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Publishers"
+          },
+          "genres": {
+            "items": {
+              "$ref": "#/components/schemas/SteamGenre"
+            },
+            "type": "array",
+            "title": "Genres"
+          },
+          "categories": {
+            "items": {
+              "$ref": "#/components/schemas/SteamCategory"
+            },
+            "type": "array",
+            "title": "Categories"
+          },
+          "platforms": {
+            "$ref": "#/components/schemas/SteamPlatforms"
+          },
+          "release_date": {
+            "$ref": "#/components/schemas/SteamReleaseDate"
+          },
+          "is_free": {
+            "type": "boolean",
+            "title": "Is Free"
+          },
+          "price": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SteamPrice"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "header_image": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Header Image"
+          },
+          "website": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Website"
+          },
+          "metacritic_score": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metacritic Score"
+          },
+          "recommendation_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recommendation Count"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "app_id",
+          "store_url",
+          "name",
+          "platforms",
+          "release_date",
+          "is_free"
+        ],
+        "title": "SteamGameMetadata"
+      },
+      "SteamGenre": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "SteamGenre"
+      },
+      "SteamPlatforms": {
+        "properties": {
+          "windows": {
+            "type": "boolean",
+            "title": "Windows",
+            "default": false
+          },
+          "mac": {
+            "type": "boolean",
+            "title": "Mac",
+            "default": false
+          },
+          "linux": {
+            "type": "boolean",
+            "title": "Linux",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "SteamPlatforms"
+      },
+      "SteamPrice": {
+        "properties": {
+          "currency": {
+            "type": "string",
+            "title": "Currency"
+          },
+          "initial_minor": {
+            "type": "integer",
+            "title": "Initial Minor"
+          },
+          "final_minor": {
+            "type": "integer",
+            "title": "Final Minor"
+          },
+          "discount_percent": {
+            "type": "integer",
+            "title": "Discount Percent"
+          }
+        },
+        "type": "object",
+        "required": [
+          "currency",
+          "initial_minor",
+          "final_minor",
+          "discount_percent"
+        ],
+        "title": "SteamPrice"
+      },
+      "SteamReleaseDate": {
+        "properties": {
+          "coming_soon": {
+            "type": "boolean",
+            "title": "Coming Soon"
+          },
+          "raw": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Raw"
+          }
+        },
+        "type": "object",
+        "required": [
+          "coming_soon"
+        ],
+        "title": "SteamReleaseDate"
+      },
+      "SteamReview": {
+        "properties": {
+          "recommendation_id": {
+            "type": "string",
+            "title": "Recommendation Id"
+          },
+          "language": {
+            "type": "string",
+            "title": "Language"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "voted_up": {
+            "type": "boolean",
+            "title": "Voted Up"
+          },
+          "votes_up": {
+            "type": "integer",
+            "title": "Votes Up"
+          },
+          "votes_funny": {
+            "type": "integer",
+            "title": "Votes Funny"
+          },
+          "weighted_vote_score": {
+            "type": "number",
+            "title": "Weighted Vote Score"
+          },
+          "comment_count": {
+            "type": "integer",
+            "title": "Comment Count"
+          },
+          "steam_purchase": {
+            "type": "boolean",
+            "title": "Steam Purchase"
+          },
+          "received_for_free": {
+            "type": "boolean",
+            "title": "Received For Free"
+          },
+          "written_during_early_access": {
+            "type": "boolean",
+            "title": "Written During Early Access"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "author": {
+            "$ref": "#/components/schemas/SteamReviewAuthor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "recommendation_id",
+          "language",
+          "text",
+          "voted_up",
+          "votes_up",
+          "votes_funny",
+          "weighted_vote_score",
+          "comment_count",
+          "steam_purchase",
+          "received_for_free",
+          "written_during_early_access",
+          "author"
+        ],
+        "title": "SteamReview"
+      },
+      "SteamReviewAuthor": {
+        "properties": {
+          "steam_id": {
+            "type": "string",
+            "title": "Steam Id"
+          },
+          "games_owned": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Games Owned"
+          },
+          "reviews_written": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviews Written"
+          },
+          "playtime_forever_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Playtime Forever Minutes"
+          },
+          "playtime_last_two_weeks_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Playtime Last Two Weeks Minutes"
+          },
+          "playtime_at_review_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Playtime At Review Minutes"
+          },
+          "last_played_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Played At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "steam_id"
+        ],
+        "title": "SteamReviewAuthor"
+      },
+      "SteamReviewSummary": {
+        "properties": {
+          "review_score": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Score"
+          },
+          "review_score_description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Score Description"
+          },
+          "total_positive": {
+            "type": "integer",
+            "title": "Total Positive"
+          },
+          "total_negative": {
+            "type": "integer",
+            "title": "Total Negative"
+          },
+          "total_reviews": {
+            "type": "integer",
+            "title": "Total Reviews"
+          },
+          "returned_reviews": {
+            "type": "integer",
+            "title": "Returned Reviews"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total_positive",
+          "total_negative",
+          "total_reviews",
+          "returned_reviews"
+        ],
+        "title": "SteamReviewSummary"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}
