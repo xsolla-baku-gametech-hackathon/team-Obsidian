@@ -124,6 +124,8 @@ def test_full_analysis_route_uses_live_regular_prices_and_cache(catalog):
             json={"steam_url": "https://store.steampowered.com/app/1/"},
             headers=headers,
         )
+        history = client.get("/api/v1/reports", headers=headers)
+        saved = client.get("/api/v1/reports/1", headers=headers)
     assert first.status_code == 200, first.text
     data = first.json()
     assert data["game"]["tags"] == ["Deckbuilding"]
@@ -133,6 +135,11 @@ def test_full_analysis_route_uses_live_regular_prices_and_cache(catalog):
     assert data["catalog"]["game_count"] == 7
     assert second.json() == data
     assert upstream.calls == 7
+    assert history.status_code == 200
+    assert len(history.json()["reports"]) == 2
+    assert history.json()["reports"][0]["game_name"] == "Synthetic 1"
+    assert saved.status_code == 200
+    assert saved.json()["payload"]["game"]["app_id"] == 1
 
 
 def test_network_failure_preserves_catalog_results_without_invented_prices(catalog):
@@ -193,6 +200,31 @@ def test_analysis_route_requires_active_subscription(catalog):
             headers={"Authorization": f"Bearer {signup.json()['access_token']}"},
         )
         assert inactive.status_code == 403
+
+
+def test_report_history_is_user_scoped(catalog):
+    service = SteamAnalysisService(LiveClient(), catalog)
+    user_store = UserStore(catalog.path.parent / "scoped-reports.sqlite")
+    with TestClient(create_app(analysis_service=service, user_store=user_store)) as client:
+        owner_headers = premium_headers(client)
+        generated = client.post(
+            "/api/v1/steam/games/analyze",
+            json={"steam_url": "https://store.steampowered.com/app/1/"},
+            headers=owner_headers,
+        )
+        assert generated.status_code == 200
+
+        signup = client.post(
+            "/api/v1/auth/signup",
+            json={"email": "other@example.com", "password": "secure-password"},
+        )
+        other_headers = {"Authorization": f"Bearer {signup.json()['access_token']}"}
+        other_history = client.get("/api/v1/reports", headers=other_headers)
+        forbidden_detail = client.get("/api/v1/reports/1", headers=other_headers)
+
+    assert other_history.status_code == 200
+    assert other_history.json()["reports"] == []
+    assert forbidden_detail.status_code == 404
 
 
 def test_failed_import_keeps_previous_catalog(catalog, tmp_path):

@@ -439,6 +439,125 @@
         }
       }
     },
+    "/api/v1/reports": {
+      "get": {
+        "tags": [
+          "reports"
+        ],
+        "summary": "List Reports",
+        "operationId": "list_reports_api_v1_reports_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportCollection"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/reports/{report_id}": {
+      "get": {
+        "tags": [
+          "reports"
+        ],
+        "summary": "Get Report",
+        "operationId": "get_report_api_v1_reports__report_id__get",
+        "parameters": [
+          {
+            "name": "report_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Report Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedReport"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/recommendations": {
       "post": {
         "tags": [
@@ -1567,6 +1686,173 @@
           "explanation"
         ],
         "title": "ReleaseWindow"
+      },
+      "ReportCollection": {
+        "properties": {
+          "reports": {
+            "items": {
+              "$ref": "#/components/schemas/ReportSummary"
+            },
+            "type": "array",
+            "title": "Reports"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "reports"
+        ],
+        "title": "ReportCollection"
+      },
+      "ReportSummary": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "steam_url": {
+            "type": "string",
+            "title": "Steam Url"
+          },
+          "app_id": {
+            "type": "integer",
+            "title": "App Id"
+          },
+          "game_name": {
+            "type": "string",
+            "title": "Game Name"
+          },
+          "target_source": {
+            "type": "string",
+            "title": "Target Source"
+          },
+          "suggested_price_minor": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggested Price Minor"
+          },
+          "price_currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Currency"
+          },
+          "release_status": {
+            "type": "string",
+            "title": "Release Status"
+          },
+          "competitor_count": {
+            "type": "integer",
+            "title": "Competitor Count"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "steam_url",
+          "app_id",
+          "game_name",
+          "target_source",
+          "release_status",
+          "competitor_count",
+          "created_at"
+        ],
+        "title": "ReportSummary"
+      },
+      "SavedReport": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "steam_url": {
+            "type": "string",
+            "title": "Steam Url"
+          },
+          "app_id": {
+            "type": "integer",
+            "title": "App Id"
+          },
+          "game_name": {
+            "type": "string",
+            "title": "Game Name"
+          },
+          "target_source": {
+            "type": "string",
+            "title": "Target Source"
+          },
+          "suggested_price_minor": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggested Price Minor"
+          },
+          "price_currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Currency"
+          },
+          "release_status": {
+            "type": "string",
+            "title": "Release Status"
+          },
+          "competitor_count": {
+            "type": "integer",
+            "title": "Competitor Count"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "payload": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Payload"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "steam_url",
+          "app_id",
+          "game_name",
+          "target_source",
+          "release_status",
+          "competitor_count",
+          "created_at",
+          "payload"
+        ],
+        "title": "SavedReport"
       },
       "SignupRequest": {
         "properties": {
