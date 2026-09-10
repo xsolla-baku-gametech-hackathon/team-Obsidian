@@ -8,15 +8,14 @@ Logged-in navigation includes Dashboard, My Reports, Steam analysis, and Account
 
 From a fresh clone, run the root setup first:
 
-```bash
+```powershell
 cd team-Obsidian
-chmod +x scripts/setup_dev.sh scripts/dev.sh scripts/run_api.sh
-./scripts/setup_dev.sh
+python scripts/setup_dev.py
 ```
 
-```bash
+```powershell
 # Starts the FastAPI backend and Vite frontend together.
-./scripts/dev.sh
+python scripts/dev.py
 ```
 
 For frontend-only work:

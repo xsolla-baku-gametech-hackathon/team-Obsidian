@@ -10,11 +10,11 @@ data limitations. Optional inputs: uppercase `country_code` (default US),
 `earliest_date` and `latest_date` (both required if overriding the default next
 90 days).
 
-After installing dependencies, import the downloaded local CSV once:
+For the full local app, run these commands from the repository root:
 
-```bash
-.venv/bin/python -m ili_pipeline.catalog
-./scripts/run_api.sh
+```powershell
+python scripts/setup_dev.py
+python scripts/dev.py
 ```
 
 The default input is `data/raw/steam/steam_games.csv`; the output is
@@ -30,8 +30,8 @@ timestamp from CSV import time.
 
 During development, start both backend and frontend together from the repository root:
 
-```bash
-./scripts/dev.sh
+```powershell
+python scripts/dev.py
 ```
 
 `POST /api/v1/steam/games/inspect` and `POST /api/v1/recommendations` also require an
@@ -78,10 +78,9 @@ cached in memory for five minutes.
 
 From the repository root:
 
-```bash
-python3 -m venv .venv
-.venv/bin/python -m pip install -e packages/core -e pipelines -e 'apps/api[dev]'
-./scripts/run_api.sh
+```powershell
+python scripts/setup_dev.py
+python scripts/dev.py
 ```
 
 Open `http://127.0.0.1:8000/docs` for Swagger UI. Inspect a game with:
