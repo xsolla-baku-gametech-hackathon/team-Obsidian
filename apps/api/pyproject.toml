@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = 'ili-api'
 version = "0.1.0"
 requires-python = ">=3.11"
-dependencies = ['ili-core==0.1.0', 'ili-pipeline==0.1.0', 'fastapi>=0.115,<1', 'uvicorn>=0.34,<1', 'pydantic-settings>=2.7,<3']
+dependencies = ['ili-core==0.1.0', 'ili-pipeline==0.1.0', 'argon2-cffi>=25,<26', 'fastapi>=0.115,<1', 'uvicorn>=0.34,<1', 'pydantic-settings>=2.7,<3']
 
 [project.scripts]
 ili-api = "ili_api.cli:run"
