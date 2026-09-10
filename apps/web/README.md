@@ -3,8 +3,16 @@
 A React + TypeScript launch workspace. Anonymous visitors see a welcome page, signed-in
 users choose a premium plan and account type, and active premium users can enter a
 Steam store game link from the dashboard workspace to generate a report with real
-catalog matches and live Steam price comparisons. Logged-in navigation includes
-Dashboard, My Reports, Steam analysis, and Account pages.
+upcoming launch competitors, catalog matches, and live Steam price comparisons.
+Logged-in navigation includes Dashboard, My Reports, Steam analysis, and Account pages.
+
+From a fresh clone, run the root setup first:
+
+```bash
+cd team-Obsidian
+chmod +x scripts/setup_dev.sh scripts/dev.sh scripts/run_api.sh
+./scripts/setup_dev.sh
+```
 
 ```bash
 # Starts the FastAPI backend and Vite frontend together.
@@ -34,10 +42,11 @@ Vite development and preview servers proxy `/api` to `http://127.0.0.1:8000`. Re
 Vite if it was started before this proxy configuration existed. For a separately
 hosted API, set `VITE_API_BASE_URL` at build time and configure API CORS accordingly.
 The current form uses the US market and the next 90 days. The API also supports an
-explicit date range and country code. The supplied CSV has no future releases, so
-release advice explicitly explains that upcoming data is needed. No mock results
-are shown. Checkout remains disconnected; selecting a plan updates local account
-state but does not take payment.
+explicit date range and country code. The historical CSV is local and ignored by git;
+without it, price comparisons and historical similarity matches are limited. Upcoming
+release timing uses `data/processed/upcoming.json`, which can be prepared during setup
+or refreshed by the API in the background. No mock results are shown. Checkout remains
+disconnected; selecting a plan updates local account state but does not take payment.
 
 Earlier dashboard feature components and synthetic fixtures remain available in
 `src/features` and `src/lib/api` for later integration, but are not rendered by this flow.
