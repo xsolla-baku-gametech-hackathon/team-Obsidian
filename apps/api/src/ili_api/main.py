@@ -1,5 +1,6 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from datetime import timedelta
 from typing import Any
 from uuid import uuid4
 
@@ -9,6 +10,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from ili_core.storage.catalog import CatalogUnavailable, SteamCatalog
+from ili_core.storage.users import AuthConflict, AuthInvalidCredentials, AuthUnauthorized, UserStore
 from ili_pipeline.sources.steam import (
     InvalidSteamUrl,
     SteamClient,
@@ -16,7 +18,7 @@ from ili_pipeline.sources.steam import (
     SteamUpstreamError,
 )
 
-from ili_api.routes import health, recommendations, steam
+from ili_api.routes import auth, health, recommendations, steam
 from ili_api.services.analysis import SteamAnalysisService
 from ili_api.services.steam import SteamInspectionService
 from ili_api.settings import Settings, get_settings
@@ -27,6 +29,7 @@ def create_app(
     settings: Settings | None = None,
     steam_service: SteamInspectionService | None = None,
     analysis_service: SteamAnalysisService | None = None,
+    user_store: UserStore | None = None,
 ) -> FastAPI:
     config = settings or get_settings()
 
@@ -37,6 +40,11 @@ def create_app(
             timeout=timeout,
             headers={"User-Agent": config.steam_user_agent, "Accept": "application/json"},
         ) as client:
+            configured_user_store = user_store or UserStore(
+                config.user_db_path, session_ttl=timedelta(hours=config.session_ttl_hours)
+            )
+            configured_user_store.initialize()
+            app.state.user_store = configured_user_store
             app.state.steam_service = steam_service or SteamInspectionService(
                 SteamClient(client), cache_ttl_seconds=config.steam_cache_ttl_seconds
             )
@@ -55,7 +63,7 @@ def create_app(
         allow_origins=config.cors_origin_list,
         allow_credentials=False,
         allow_methods=["GET", "POST", "OPTIONS"],
-        allow_headers=["Content-Type", "X-Request-ID"],
+        allow_headers=["Authorization", "Content-Type", "X-Request-ID"],
     )
 
     @app.middleware("http")
@@ -80,6 +88,18 @@ def create_app(
     async def catalog_unavailable(request: Request, exc: CatalogUnavailable) -> JSONResponse:
         return error(request, 503, "catalog_unavailable", str(exc))
 
+    @app.exception_handler(AuthConflict)
+    async def auth_conflict(request: Request, exc: AuthConflict) -> JSONResponse:
+        return error(request, 409, "auth_conflict", str(exc))
+
+    @app.exception_handler(AuthInvalidCredentials)
+    async def auth_invalid(request: Request, exc: AuthInvalidCredentials) -> JSONResponse:
+        return error(request, 401, "invalid_credentials", str(exc))
+
+    @app.exception_handler(AuthUnauthorized)
+    async def auth_unauthorized(request: Request, exc: AuthUnauthorized) -> JSONResponse:
+        return error(request, 401, "unauthorized", str(exc))
+
     @app.exception_handler(SteamGameNotFound)
     async def not_found(request: Request, exc: SteamGameNotFound) -> JSONResponse:
         return error(request, 404, "steam_game_not_found", str(exc))
@@ -94,6 +114,7 @@ def create_app(
         return error(request, 422, "validation_error", str(first.get("msg", "Invalid request")))
 
     app.include_router(health.router)
+    app.include_router(auth.router)
     app.include_router(steam.router)
     app.include_router(recommendations.router)
     return app

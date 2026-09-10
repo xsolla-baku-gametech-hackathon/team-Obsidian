@@ -14,6 +14,12 @@ obtained from `/datasets/current`, preventing a refresh from mixing versions.
 | Method and route | Input | Output |
 | --- | --- | --- |
 | `GET /health` | None | Process liveness; no upstream source calls |
+| `POST /api/v1/auth/signup` (implemented) | Email, password, optional display name | Bearer session and inactive account |
+| `POST /api/v1/auth/login` (implemented) | Email and password | Bearer session |
+| `GET /api/v1/auth/me` (implemented) | Bearer token | Current account |
+| `POST /api/v1/auth/logout` (implemented) | Bearer token | Deletes session |
+| `POST /api/v1/auth/subscription` (implemented) | Bearer token, plan, premium role | Updated account |
+| `POST /api/v1/auth/youtube/dev-verify` (implemented) | Bearer token, channel and Google subject | Active content creator account |
 | `POST /api/v1/steam/games/inspect` | Steam Store URL, locale and review options | Live normalized metadata, recent reviews, player count, cache metadata |
 | `POST /api/v1/steam/games/analyze` (implemented) | Steam URL, optional country and date range | Game profile, catalog matches, refreshed prices and model report |
 | `POST /api/v1/recommendations` (implemented) | Game profile, dataset, dates, currency and region | Direct `LaunchReport`: competitors, release advice, price advice and warnings |

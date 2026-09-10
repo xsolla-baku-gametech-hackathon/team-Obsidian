@@ -34,6 +34,27 @@ and returns competitor matches, release advice, comparable pricing, and explanat
 See the [model card](../../ml/MODEL_CARD.md) for collection and request instructions.
 This endpoint uses local inference without Steam or LLM network calls.
 
+## Auth and subscriptions
+
+Accounts start without a role. Users sign up or log in normally, then select a paid
+plan and premium role through `POST /api/v1/auth/subscription`.
+
+| Route | Purpose |
+| --- | --- |
+| `POST /api/v1/auth/signup` | Create account and return bearer session |
+| `POST /api/v1/auth/login` | Return bearer session |
+| `POST /api/v1/auth/logout` | Delete current session |
+| `GET /api/v1/auth/me` | Return current account |
+| `POST /api/v1/auth/subscription` | Select `starter`, `pro`, or `studio` and role |
+| `POST /api/v1/auth/youtube/dev-verify` | Local placeholder for Google/YouTube verification |
+
+Passwords are hashed with Argon2. Session tokens are random bearer tokens; only SHA-256
+token hashes are stored in SQLite. User data is stored in `data/processed/users.sqlite`
+by default. Game developers become active immediately after plan selection. Content
+creators become `pending_youtube_verification` until their YouTube channel is verified
+through the Google OAuth flow. The current dev endpoint records that verified state
+without implementing the external OAuth exchange.
+
 FastAPI REST API for Indie Launch Intelligence. The first endpoint validates a Steam
 Store link, fetches normalized store-page metadata, and returns live review/player
 signals when Steam exposes them. Upcoming games are supported: the API returns fields

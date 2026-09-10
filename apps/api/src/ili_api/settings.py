@@ -12,6 +12,8 @@ class Settings(BaseSettings):
     steam_user_agent: str = "IndieLaunchIntelligence/0.1"
     cors_origins: str = "http://localhost:5173"
     catalog_path: Path = Path(__file__).resolve().parents[4] / "data/processed/steam-catalog.sqlite"
+    user_db_path: Path = Path(__file__).resolve().parents[4] / "data/processed/users.sqlite"
+    session_ttl_hours: int = 168
 
     @property
     def cors_origin_list(self) -> list[str]:
