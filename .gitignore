@@ -31,3 +31,5 @@ data/snapshots/*
 ml/artifacts/
 ml/runs/
 .ipynb_checkpoints/
+
+*.tsbuildinfo

@@ -9,9 +9,12 @@ data with a cached offline fallback. It provides market context, not success pre
 
 ## Repository status
 
-This repository contains the architecture and tracked directory scaffold. The scraper,
-API, model, dashboard, datasets, dependency manifests, and deployment are not implemented
-yet. There are no installation or application launch commands at this stage.
+The React frontend provides a Steam-link form and a large paywall dialog over blurred
+report placeholders. Link validation checks format only. Game lookup, real reports,
+checkout, the API, and deployment remain pending.
+
+Run the frontend with `cd apps/web && npm install && npm run dev`. See the
+[frontend guide](apps/web/README.md) for build commands and integration boundaries.
 
 ## Start here
 
