@@ -20,9 +20,9 @@ obtained from `/datasets/current`, preventing a refresh from mixing versions.
 | `POST /api/v1/auth/logout` (implemented) | Bearer token | Deletes session |
 | `POST /api/v1/auth/subscription` (implemented) | Bearer token, plan, premium role | Updated account |
 | `POST /api/v1/auth/youtube/dev-verify` (implemented) | Bearer token, channel and Google subject | Active content creator account |
-| `POST /api/v1/steam/games/inspect` | Steam Store URL, locale and review options | Live normalized metadata, recent reviews, player count, cache metadata |
-| `POST /api/v1/steam/games/analyze` (implemented) | Steam URL, optional country and date range | Game profile, catalog matches, refreshed prices and model report |
-| `POST /api/v1/recommendations` (implemented) | Game profile, dataset, dates, currency and region | Direct `LaunchReport`: competitors, release advice, price advice and warnings |
+| `POST /api/v1/steam/games/inspect` | Active premium bearer token, Steam Store URL, locale and review options | Live normalized metadata, recent reviews, player count, cache metadata |
+| `POST /api/v1/steam/games/analyze` (implemented) | Active premium bearer token, Steam URL, optional country and date range | Game profile, catalog matches, refreshed prices and model report |
+| `POST /api/v1/recommendations` (implemented) | Active premium bearer token, game profile, dataset, dates, currency and region | Direct `LaunchReport`: competitors, release advice, price advice and warnings |
 | `GET /api/v1/datasets/current` | None | Active dataset metadata; 503 if no usable dataset |
 | `GET /api/v1/segments` | `dataset_id` | Supported segment IDs, labels, mapping version |
 | `GET /api/v1/saturation` | `dataset_id`, `start_week`, `weeks` | Weekly cells for supported segments |

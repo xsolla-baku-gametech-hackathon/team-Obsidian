@@ -60,8 +60,10 @@ export default function GameReport({ steamUrl }: { steamUrl: string }) {
     setError('');
     async function load() {
       try {
+        const token = localStorage.getItem('launchpad_access_token');
+        if (!token) throw new Error('Log in and choose a premium plan before generating reports.');
         const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || ''}/api/v1/steam/games/analyze`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({ steam_url: steamUrl, country_code: 'US' }), signal: controller.signal,
         });
         if (!response.headers.get('content-type')?.includes('application/json')) {

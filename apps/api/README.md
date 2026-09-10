@@ -1,12 +1,14 @@
 # Backend API
 
-The website uses `POST /api/v1/steam/games/analyze` with just
-`{"steam_url":"https://store.steampowered.com/app/413150/"}`. This route reads the
-indexed catalog, looks up the game on Steam, matches similar titles, refreshes up to
-20 competitor records, and runs the model. It returns catalog provenance, matched
-games, regular prices, price advice, release advice, and explicit data limitations.
-Optional inputs: uppercase `country_code` (default US), `earliest_date` and
-`latest_date` (both required if overriding the default next 90 days).
+The website uses `POST /api/v1/steam/games/analyze` after login and active premium
+subscription selection. The request requires `Authorization: Bearer <token>` and a
+body such as `{"steam_url":"https://store.steampowered.com/app/413150/"}`. This
+route reads the indexed catalog, looks up the game on Steam, matches similar titles,
+refreshes up to 20 competitor records, and runs the model. It returns catalog
+provenance, matched games, regular prices, price advice, release advice, and explicit
+data limitations. Optional inputs: uppercase `country_code` (default US),
+`earliest_date` and `latest_date` (both required if overriding the default next
+90 days).
 
 After installing dependencies, import the supplied CSV once:
 
@@ -29,10 +31,12 @@ During development, start both backend and frontend together from the repository
 ./scripts/dev.sh
 ```
 
-`POST /api/v1/recommendations` accepts a game profile and validated market snapshot
-and returns competitor matches, release advice, comparable pricing, and explanations.
-See the [model card](../../ml/MODEL_CARD.md) for collection and request instructions.
-This endpoint uses local inference without Steam or LLM network calls.
+`POST /api/v1/steam/games/inspect` and `POST /api/v1/recommendations` also require an
+active premium bearer token. The recommendations route accepts a game profile and
+validated market snapshot and returns competitor matches, release advice, comparable
+pricing, and explanations. See the [model card](../../ml/MODEL_CARD.md) for collection
+and request instructions. This endpoint uses local inference without Steam or LLM
+network calls.
 
 ## Auth and subscriptions
 
@@ -77,6 +81,7 @@ Open `http://127.0.0.1:8000/docs` for Swagger UI. Inspect a game with:
 ```bash
 curl -X POST 'http://127.0.0.1:8000/api/v1/steam/games/inspect' \
   -H 'Content-Type: application/json' \
+  -H 'Authorization: Bearer <token>' \
   -d '{"steam_url":"https://store.steampowered.com/app/413150/Stardew_Valley/"}'
 ```
 

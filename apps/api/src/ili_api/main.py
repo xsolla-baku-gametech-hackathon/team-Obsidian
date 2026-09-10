@@ -10,7 +10,13 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from ili_core.storage.catalog import CatalogUnavailable, SteamCatalog
-from ili_core.storage.users import AuthConflict, AuthInvalidCredentials, AuthUnauthorized, UserStore
+from ili_core.storage.users import (
+    AuthConflict,
+    AuthForbidden,
+    AuthInvalidCredentials,
+    AuthUnauthorized,
+    UserStore,
+)
 from ili_pipeline.sources.steam import (
     InvalidSteamUrl,
     SteamClient,
@@ -99,6 +105,10 @@ def create_app(
     @app.exception_handler(AuthUnauthorized)
     async def auth_unauthorized(request: Request, exc: AuthUnauthorized) -> JSONResponse:
         return error(request, 401, "unauthorized", str(exc))
+
+    @app.exception_handler(AuthForbidden)
+    async def auth_forbidden(request: Request, exc: AuthForbidden) -> JSONResponse:
+        return error(request, 403, "forbidden", str(exc))
 
     @app.exception_handler(SteamGameNotFound)
     async def not_found(request: Request, exc: SteamGameNotFound) -> JSONResponse:

@@ -15,6 +15,7 @@ from ili_core.domain.steam import (
     SteamReleaseDate,
 )
 from ili_core.storage.catalog import SteamCatalog
+from ili_core.storage.users import UserStore
 from ili_pipeline.catalog import import_catalog, parse_labels
 from ili_pipeline.sources.steam import SteamUpstreamError
 
@@ -79,6 +80,22 @@ class LiveClient:
         )
 
 
+def premium_headers(client: TestClient) -> dict[str, str]:
+    signup = client.post(
+        "/api/v1/auth/signup",
+        json={"email": "premium@example.com", "password": "secure-password"},
+    )
+    token = signup.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+    subscription = client.post(
+        "/api/v1/auth/subscription",
+        json={"plan": "starter", "role": "game_developer"},
+        headers=headers,
+    )
+    assert subscription.status_code == 200
+    return headers
+
+
 def test_csv_formats_and_catalog(catalog):
     assert parse_labels('["Strategy"]') == ["Strategy"]
     assert parse_labels('{"Deckbuilding": 10}') == ["Deckbuilding"]
@@ -94,14 +111,18 @@ def test_csv_formats_and_catalog(catalog):
 def test_full_analysis_route_uses_live_regular_prices_and_cache(catalog):
     upstream = LiveClient()
     service = SteamAnalysisService(upstream, catalog)
-    with TestClient(create_app(analysis_service=service)) as client:
+    user_store = UserStore(catalog.path.parent / "users.sqlite")
+    with TestClient(create_app(analysis_service=service, user_store=user_store)) as client:
+        headers = premium_headers(client)
         first = client.post(
             "/api/v1/steam/games/analyze",
             json={"steam_url": "https://store.steampowered.com/app/1/"},
+            headers=headers,
         )
         second = client.post(
             "/api/v1/steam/games/analyze",
             json={"steam_url": "https://store.steampowered.com/app/1/"},
+            headers=headers,
         )
     assert first.status_code == 200, first.text
     data = first.json()
@@ -131,10 +152,13 @@ def test_network_failure_preserves_catalog_results_without_invented_prices(catal
 
 def test_missing_catalog_and_invalid_request(tmp_path):
     service = SteamAnalysisService(LiveClient(), SteamCatalog(tmp_path / "absent.sqlite"))
-    with TestClient(create_app(analysis_service=service)) as client:
+    user_store = UserStore(tmp_path / "users.sqlite")
+    with TestClient(create_app(analysis_service=service, user_store=user_store)) as client:
+        headers = premium_headers(client)
         response = client.post(
             "/api/v1/steam/games/analyze",
             json={"steam_url": "https://store.steampowered.com/app/1/"},
+            headers=headers,
         )
         assert response.status_code == 200, response.text
         assert response.json()["target_source"] == "steam_live_metadata_only"
@@ -142,9 +166,33 @@ def test_missing_catalog_and_invalid_request(tmp_path):
         assert response.json()["competitors"] == []
         assert response.json()["report"]["price"]["status"] == "insufficient_evidence"
         invalid = client.post(
-            "/api/v1/steam/games/analyze", json={"steam_url": "https://example.com/app/1/"}
+            "/api/v1/steam/games/analyze",
+            json={"steam_url": "https://example.com/app/1/"},
+            headers=headers,
         )
         assert invalid.status_code == 422
+
+
+def test_analysis_route_requires_active_subscription(catalog):
+    service = SteamAnalysisService(LiveClient(), catalog)
+    user_store = UserStore(catalog.path.parent / "auth-required.sqlite")
+    with TestClient(create_app(analysis_service=service, user_store=user_store)) as client:
+        anonymous = client.post(
+            "/api/v1/steam/games/analyze",
+            json={"steam_url": "https://store.steampowered.com/app/1/"},
+        )
+        assert anonymous.status_code == 401
+
+        signup = client.post(
+            "/api/v1/auth/signup",
+            json={"email": "inactive@example.com", "password": "secure-password"},
+        )
+        inactive = client.post(
+            "/api/v1/steam/games/analyze",
+            json={"steam_url": "https://store.steampowered.com/app/1/"},
+            headers={"Authorization": f"Bearer {signup.json()['access_token']}"},
+        )
+        assert inactive.status_code == 403
 
 
 def test_failed_import_keeps_previous_catalog(catalog, tmp_path):
