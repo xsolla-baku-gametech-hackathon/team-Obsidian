@@ -425,16 +425,28 @@ export default function App() {
 
   function renderDashboard() {
     const developer = account?.premium_role === 'game_developer';
+    const pendingRequests = keyRequests.filter(request => request.status === 'pending').length;
+    const dashboardMetrics = developer
+      ? [
+          { icon: <FileText size={19} />, label: 'Total reports', value: reports.length },
+          { icon: <CreditCard size={19} />, label: 'Plan', value: prettyPlan(account?.subscription_plan ?? null) },
+          { icon: <User size={19} />, label: 'Workspace', value: prettyRole(account?.premium_role ?? null) },
+          { icon: <CalendarDays size={19} />, label: 'Latest report', value: latestReport ? formatDate(latestReport.created_at) : 'None yet' },
+        ]
+      : [
+          { icon: <Store size={19} />, label: 'Available games', value: games.length },
+          { icon: <KeyRound size={19} />, label: 'My requests', value: keyRequests.length },
+          { icon: <CalendarDays size={19} />, label: 'Pending requests', value: pendingRequests },
+          { icon: <Youtube size={19} />, label: 'YouTube', value: account?.youtube_channel_id ? 'Verified' : 'Not connected' },
+        ];
+
     return <>
       <section className="dash-hero">
-        <div><p className="eyebrow">COMMAND CENTER</p><h1>Welcome back, {account?.display_name || 'builder'}.</h1><p>{developer ? 'Track your reports, verify ownership, publish approved games, and review creator interest.' : 'Discover verified games from developers and track your key requests.'}</p></div>
+        <div><p className="eyebrow">COMMAND CENTER</p><h1>Welcome back, {account?.display_name || 'builder'}.</h1><p>{developer ? 'Track your reports, verify ownership, publish approved games, and review creator interest.' : 'Discover verified upcoming games, request keys, and track creator access from one workspace.'}</p></div>
         <button className="primary" type="button" onClick={() => nav(developer ? 'analyze' : 'marketplace')}>{developer ? 'Open Steam analysis' : 'Discover games'} <ArrowRight size={17} /></button>
       </section>
       <section className="metric-grid">
-        <article><FileText size={19} /><span>Total reports</span><strong>{reports.length}</strong></article>
-        <article><CreditCard size={19} /><span>Plan</span><strong>{prettyPlan(account?.subscription_plan ?? null)}</strong></article>
-        <article><User size={19} /><span>Workspace</span><strong>{prettyRole(account?.premium_role ?? null)}</strong></article>
-        <article><CalendarDays size={19} /><span>{developer ? 'Latest report' : 'Requests'}</span><strong>{developer ? latestReport ? formatDate(latestReport.created_at) : 'None yet' : keyRequests.length}</strong></article>
+        {dashboardMetrics.map(metric => <article key={metric.label}>{metric.icon}<span>{metric.label}</span><strong>{metric.value}</strong></article>)}
       </section>
       <section className="dashboard-grid">
         {developer ? <>
