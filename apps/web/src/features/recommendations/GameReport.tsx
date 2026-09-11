@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, ArrowRight, CalendarCheck, RefreshCw, ShieldAlert, Tag } from 'lucide-react';
+import { ArrowRight, CalendarCheck, RefreshCw, ShieldAlert, Tag } from 'lucide-react';
+import { ACCESS_TOKEN_KEY } from '../../lib/api/client';
 
 type Profile = { app_id: number; name: string; genres: string[]; tags: string[]; description: string };
 type UpcomingCompetitor = {
@@ -83,12 +84,21 @@ function shortDateRange(window?: ReleaseWindow): string {
   return `${window.start_date} - ${window.end_date}`;
 }
 
-function pressureLabel(score?: number): string {
-  if (score === undefined) return 'Pressure score unavailable';
-  if (score === 0) return 'No dated pressure observed';
-  if (score < 2) return 'Low observed pressure';
-  if (score < 6) return 'Moderate observed pressure';
-  return 'High observed pressure';
+function releaseCountText(count?: number): string {
+  if (!count) return 'no dated releases';
+  return `${count} dated release${count === 1 ? '' : 's'}`;
+}
+
+function windowPressureLabel(window?: ReleaseWindow, intent: 'best' | 'backup' | 'avoid' | 'evidence' = 'evidence'): string {
+  if (!window || window.competition_score === undefined) return 'Pressure score unavailable';
+  const count = releaseCountText(window.observed_release_count);
+  const score = window.competition_score.toFixed(window.competition_score >= 10 ? 1 : 2);
+
+  if (window.competition_score === 0) return `Clear window: ${count} nearby.`;
+  if (intent === 'best') return `Lowest-pressure option found: ${count} nearby.`;
+  if (intent === 'backup') return `Backup option: ${count} nearby.`;
+  if (intent === 'avoid') return `Most crowded observed window: ${count} nearby.`;
+  return `Pressure score ${score} from ${count} nearby.`;
 }
 
 function cleanDescription(value: string): string {
@@ -120,7 +130,7 @@ export default function GameReport({
 
     async function load() {
       try {
-        const token = localStorage.getItem('launchpad_access_token');
+        const token = localStorage.getItem(ACCESS_TOKEN_KEY);
         if (!token) throw new Error('Log in and choose a premium plan before generating reports.');
         const response = await fetch(
           `${import.meta.env.VITE_API_BASE_URL || ''}/api/v1/steam/games/analyze`,
@@ -246,13 +256,13 @@ export function ReportView({ data }: { data: Analysis }) {
         <CalendarCheck size={20} />
         <span>Best window</span>
         <strong>{shortDateRange(bestWindow)}</strong>
-        <p>{bestWindow ? pressureLabel(bestWindow.competition_score) : report.release.explanation}</p>
+        <p>{bestWindow ? windowPressureLabel(bestWindow, 'best') : report.release.explanation}</p>
       </article>
       <article className="decision-card danger-decision">
         <ShieldAlert size={20} />
         <span>Avoid first</span>
         <strong>{shortDateRange(avoidWindow)}</strong>
-        <p>{avoidWindow ? pressureLabel(avoidWindow.competition_score) : 'No major risk window found.'}</p>
+        <p>{avoidWindow ? windowPressureLabel(avoidWindow, 'avoid') : 'No major risk window found.'}</p>
       </article>
       <article className="decision-card">
         <Tag size={20} />
@@ -267,7 +277,7 @@ export function ReportView({ data }: { data: Analysis }) {
     {secondWindow && <section className="next-best">
       <p className="eyebrow">BACKUP WINDOW</p>
       <strong>{shortDateRange(secondWindow)}</strong>
-      <p>{pressureLabel(secondWindow.competition_score)}</p>
+      <p>{windowPressureLabel(secondWindow, 'backup')}</p>
     </section>}
 
     <section>
@@ -313,13 +323,13 @@ export function ReportView({ data }: { data: Analysis }) {
         {report.release.windows.map(window => <article className="advice-card" key={window.start_date}>
           <h3>{window.rank ? `Window #${window.rank}` : 'Release window'}</h3>
           <strong>{shortDateRange(window)}</strong>
-          <p>{pressureLabel(window.competition_score)}</p>
+          <p>{windowPressureLabel(window)}</p>
           <p>{window.explanation}</p>
         </article>)}
         {report.release.high_risk_windows?.map(window => <article className="advice-card" key={`risk-${window.start_date}`}>
           <h3>High-risk window</h3>
           <strong>{shortDateRange(window)}</strong>
-          <p>{pressureLabel(window.competition_score)}</p>
+          <p>{windowPressureLabel(window)}</p>
           <p>{window.evidence_app_ids?.map(id => upcoming.find(game => game.app_id === id)?.name || `Steam app ${id}`).slice(0, 8).join(', ')}</p>
         </article>)}
       </div>

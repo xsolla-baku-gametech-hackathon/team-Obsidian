@@ -23,125 +23,25 @@ import {
   Youtube,
 } from 'lucide-react';
 import GameReport, { ReportView } from '../features/recommendations/GameReport';
-import type { Analysis } from '../features/recommendations/GameReport';
+import { api, ACCESS_TOKEN_KEY } from '../lib/api/client';
+import { formatDate, money, prettyPlan, prettyRole } from '../lib/format';
+import { steamLink } from '../lib/steam';
+import type {
+  Account,
+  AuthSession,
+  KeyRequest,
+  OwnershipApplication,
+  Page,
+  PlanName,
+  PublishedGame,
+  ReportCollection,
+  ReportSummary,
+  SavedReport,
+  UserRole,
+} from '../lib/types';
 
 // Temporary preview bypass. Restore this flag when report checkout is ready.
 const REPORT_PAYWALL_ENABLED = false;
-const ACCESS_TOKEN_KEY = 'launchpad_access_token';
-
-type UserRole = 'game_developer' | 'content_creator';
-type PlanName = 'starter' | 'pro' | 'studio';
-type Page = 'dashboard' | 'analyze' | 'reports' | 'ownership' | 'marketplace' | 'keys' | 'account';
-type Account = {
-  id: number;
-  email: string;
-  display_name: string | null;
-  premium_role: UserRole | null;
-  subscription_plan: PlanName | null;
-  subscription_status: 'inactive' | 'active' | 'pending_youtube_verification';
-  youtube_channel_id: string | null;
-};
-type AuthSession = { access_token: string; user: Account };
-type ReportSummary = {
-  id: number;
-  steam_url: string;
-  app_id: number;
-  game_name: string;
-  target_source: string;
-  suggested_price_minor: number | null;
-  price_currency: string | null;
-  release_status: string;
-  competitor_count: number;
-  created_at: string;
-};
-type ReportCollection = { reports: ReportSummary[] };
-type SavedReport = ReportSummary & { payload: Analysis };
-type OwnershipApplication = {
-  id: number;
-  report_id: number;
-  app_id: number;
-  game_name: string;
-  steam_url: string;
-  studio_name: string;
-  applicant_name: string;
-  applicant_title: string;
-  business_email: string;
-  company_website_url: string | null;
-  official_contact_url: string | null;
-  steamworks_proof_url: string | null;
-  proof_url: string | null;
-  proof_notes: string;
-  status: 'pending' | 'approved' | 'rejected';
-  reviewed_notes: string | null;
-  created_at: string;
-  updated_at: string;
-};
-type PublishedGame = {
-  id: number;
-  owner_user_id: number;
-  ownership_application_id: number;
-  app_id: number;
-  game_name: string;
-  steam_url: string;
-  pitch: string;
-  contact_email: string | null;
-  created_at: string;
-  updated_at: string;
-};
-type KeyRequest = {
-  id: number;
-  game_id: number;
-  creator_user_id: number;
-  owner_user_id: number;
-  message: string;
-  status: 'pending' | 'approved' | 'rejected' | 'cancelled';
-  created_at: string;
-  updated_at: string;
-};
-
-async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
-  let response: Response;
-  try {
-    response = await fetch(`${import.meta.env.VITE_API_BASE_URL || ''}${path}`, {
-      ...options,
-      headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
-    });
-  } catch (cause) {
-    throw new Error('API server is unavailable. Start FastAPI with ./scripts/run_api.sh or run ./scripts/dev.sh.');
-  }
-  const contentType = response.headers.get('content-type') || '';
-  const body = contentType.includes('application/json') ? await response.json() : null;
-  if (!response.ok) throw new Error(body?.error?.message || 'API server is unavailable. Start FastAPI with ./scripts/run_api.sh or run ./scripts/dev.sh.');
-  return body as T;
-}
-
-function steamLink(value: string): string | null {
-  try {
-    const url = new URL(value.trim());
-    const match = url.pathname.match(/^\/app\/([1-9]\d*)(?:\/[^/]*)?\/?$/);
-    if (url.protocol !== 'https:' || url.hostname !== 'store.steampowered.com' || url.port || url.username || url.password || !match) return null;
-    return `https://store.steampowered.com/app/${match[1]}/`;
-  } catch { return null; }
-}
-
-function money(value: number | null, currency: string | null): string {
-  if (value === null || !currency) return 'Unavailable';
-  return new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(value / 100);
-}
-
-function prettyPlan(plan: PlanName | null): string {
-  return plan ? plan[0].toUpperCase() + plan.slice(1) : 'No plan selected';
-}
-
-function prettyRole(role: UserRole | null): string {
-  if (role === 'game_developer') return 'Game developer';
-  if (role === 'content_creator') return 'Content creator';
-  return 'Choose role';
-}
-
-function formatDate(value: string): string {
-  return new Date(value).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-}
 
 export default function App() {
   const [input, setInput] = useState('');
