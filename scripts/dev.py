@@ -13,6 +13,11 @@ REPO_DIR = Path(__file__).resolve().parents[1]
 VENV_DIR = REPO_DIR / ".venv"
 
 
+def npm_executable() -> str:
+    """Return the npm launcher that subprocess can execute on this platform."""
+    return "npm.cmd" if os.name == "nt" else "npm"
+
+
 def venv_executable(name: str) -> Path:
     if os.name == "nt":
         return VENV_DIR / "Scripts" / f"{name}.exe"
@@ -56,7 +61,7 @@ def main() -> None:
         if not wait_for_api():
             raise SystemExit("API did not start on http://127.0.0.1:8000")
 
-        web = subprocess.Popen(["npm", "run", "dev"], cwd=REPO_DIR / "apps/web")
+        web = subprocess.Popen([npm_executable(), "run", "dev"], cwd=REPO_DIR / "apps/web")
         try:
             web.wait()
         finally:

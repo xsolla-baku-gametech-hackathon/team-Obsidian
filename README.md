@@ -36,13 +36,7 @@ market context before making launch decisions.
 
 ## Run The Full Project
 
-Requirements:
-
-- Python 3.11+
-- Node.js + npm
-- Internet access for live Steam metadata and upcoming-release refresh
-
-From a fresh clone:
+From a fresh clone, with Python 3.11+ and Node.js installed:
 
 ```powershell
 cd team-Obsidian
@@ -127,94 +121,23 @@ After login, they choose a subscription plan and workspace role.
 
 ### Game Developers
 
-Game developers can:
+### Fast setup
 
-- generate Steam reports
-- view saved report history
-- apply for ownership verification from a saved report
-- publish a game only after manual approval
-- see incoming creator key requests
+To get the app running without waiting for the upcoming Steam calendar scan, use:
 
-Game developer subscriptions become active immediately in local development.
-
-### Content Creators
-
-Content creators can:
-
-- browse published verified games
-- request review/playtest keys
-- track their key requests
-- manage YouTube verification state
-
-Content creator subscriptions start as `pending_youtube_verification`. The local
-development endpoint marks YouTube as verified without real Google OAuth. Production
-should replace it with Google OAuth and YouTube channel validation.
-
-## Manual Game Ownership Verification
-
-Developers cannot publish games directly after creating a report. They must submit an
-ownership application first.
-
-The application requires:
-
-- saved report ID
-- studio name
-- applicant name
-- applicant role/title
-- business email
-- company website, official contact/press page, or Steamworks proof link
-- optional extra proof URL
-- verification notes
-
-The backend rejects weak applications with no strong proof link. It also rejects common
-personal email domains such as Gmail, Outlook, Hotmail, and Yahoo for the business email.
-
-Platform owners review applications manually. To enable owner review routes, set:
-
-```text
-ILI_ADMIN_TOKEN=your-secret-token
+```powershell
+cd team-Obsidian
+python scripts/setup_dev.py --skip-upcoming
+python scripts/dev.py
 ```
 
-Admin requests use:
+This installs all frontend and backend dependencies, but skips only the initial
+upcoming-release refresh. The API refreshes missing or stale upcoming data in the
+background after it starts.
 
-```text
-X-Admin-Token: your-secret-token
-```
-
-Relevant endpoints:
-
-| Endpoint | Purpose |
-| --- | --- |
-| `POST /api/v1/marketplace/ownership/applications` | Developer submits ownership proof |
-| `GET /api/v1/marketplace/ownership/applications` | Developer lists their applications |
-| `GET /api/v1/marketplace/admin/ownership/applications` | Platform owner lists applications |
-| `POST /api/v1/marketplace/admin/ownership/applications/{id}` | Platform owner approves/rejects |
-| `POST /api/v1/marketplace/games` | Developer publishes approved game |
-| `GET /api/v1/marketplace/games` | List published games |
-| `POST /api/v1/marketplace/games/{id}/key-requests` | Creator requests a key |
-| `GET /api/v1/marketplace/key-requests/mine` | Creator lists their requests |
-| `GET /api/v1/marketplace/key-requests/incoming` | Developer lists incoming requests |
-
-## Game Key Workflow
-
-The current implementation stores key requests, not actual Steam keys.
-
-Recommended production flow:
-
-1. Creator requests a key.
-2. Developer reviews the creator profile.
-3. Developer approves or rejects the request.
-4. The system assigns one unused encrypted key.
-5. Creator sees the claimed key.
-
-Future database objects should include key batches and encrypted individual keys with
-statuses such as `available`, `reserved`, `claimed`, and `revoked`.
-
-## Data Files
-
-Large data files are not committed to git.
-
-Expected historical Steam catalog CSV path:
+The large Steam catalog is not committed to git. To unlock historical competitor and
+price comparisons, download the Steam Games Dataset CSV and place it here before or
+after setup:
 
 ```text
 data/raw/steam/steam_games.csv
@@ -238,53 +161,9 @@ On macOS/Linux:
 .venv/bin/python -m ili_pipeline.catalog
 ```
 
-The importer creates:
-
-```text
-data/processed/steam-catalog.sqlite
-```
-
-Reports still work partially without the historical CSV. Live Steam metadata and
-upcoming release timing can work, but historical price comparisons and similarity
-matches will be limited.
-
-Upcoming release timing uses:
-
-```text
-data/processed/upcoming.json
-```
-
-Refresh manually:
-
-```powershell
-.venv/Scripts/python -m ili_pipeline.upcoming
-```
-
-On macOS/Linux:
-
-```bash
-PYTHONPATH=packages/core/src:pipelines/src .venv/bin/python -m ili_pipeline.upcoming
-```
-
-## Environment Variables
-
-Copy `.env.example` to `.env` for local overrides.
-
-| Variable | Purpose |
-| --- | --- |
-| `ILI_STEAM_TIMEOUT_SECONDS` | Timeout for Steam requests |
-| `ILI_STEAM_CACHE_TTL_SECONDS` | In-memory Steam cache TTL |
-| `ILI_STEAM_USER_AGENT` | User agent sent to Steam |
-| `ILI_CORS_ORIGINS` | Allowed frontend origins |
-| `ILI_CATALOG_PATH` | Optional historical catalog SQLite path |
-| `ILI_USER_DB_PATH` | Optional user/report/marketplace SQLite path |
-| `ILI_SESSION_TTL_HOURS` | Bearer session lifetime |
-| `ILI_ADMIN_TOKEN` | Enables platform-owner manual approval routes |
-| `ILI_UPCOMING_PATH` | Optional upcoming-release JSON path |
-| `ILI_MAJOR_RELEASES_PATH` | Optional editorial major-release config path |
-| `ILI_UPCOMING_AUTO_REFRESH` | Enable/disable API background upcoming refresh |
-
-## API Summary
+Reports can still use live Steam metadata and the upcoming release calendar without
+the historical CSV, but price comparisons and historical similarity matches will be
+limited.
 
 | Endpoint | Purpose |
 | --- | --- |
