@@ -17,6 +17,7 @@ from ili_core.storage.users import (
     AuthForbidden,
     AuthInvalidCredentials,
     AuthUnauthorized,
+    MarketplaceNotFound,
     ReportNotFound,
     UserStore,
 )
@@ -28,7 +29,7 @@ from ili_pipeline.sources.steam import (
 )
 from ili_pipeline.upcoming import load_snapshot, refresh
 
-from ili_api.routes import auth, health, recommendations, reports, steam
+from ili_api.routes import auth, health, marketplace, recommendations, reports, steam
 from ili_api.services.analysis import SteamAnalysisService
 from ili_api.services.steam import SteamInspectionService
 from ili_api.settings import Settings, get_settings
@@ -100,6 +101,7 @@ def create_app(
         version="0.1.0",
         lifespan=lifespan,
     )
+    app.state.settings = config
     app.add_middleware(
         CORSMiddleware,
         allow_origins=config.cors_origin_list,
@@ -150,6 +152,10 @@ def create_app(
     async def report_not_found(request: Request, exc: ReportNotFound) -> JSONResponse:
         return error(request, 404, "report_not_found", str(exc))
 
+    @app.exception_handler(MarketplaceNotFound)
+    async def marketplace_not_found(request: Request, exc: MarketplaceNotFound) -> JSONResponse:
+        return error(request, 404, "marketplace_not_found", str(exc))
+
     @app.exception_handler(SteamGameNotFound)
     async def not_found(request: Request, exc: SteamGameNotFound) -> JSONResponse:
         return error(request, 404, "steam_game_not_found", str(exc))
@@ -167,6 +173,7 @@ def create_app(
     app.include_router(auth.router)
     app.include_router(steam.router)
     app.include_router(reports.router)
+    app.include_router(marketplace.router)
     app.include_router(recommendations.router)
     return app
 

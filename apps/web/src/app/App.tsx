@@ -10,12 +10,14 @@ import {
   CreditCard,
   FileText,
   Gamepad2,
+  KeyRound,
   LayoutDashboard,
   Link,
   LockKeyhole,
   LogOut,
   Search,
   ShieldCheck,
+  Store,
   User,
   X,
   Youtube,
@@ -29,7 +31,7 @@ const ACCESS_TOKEN_KEY = 'launchpad_access_token';
 
 type UserRole = 'game_developer' | 'content_creator';
 type PlanName = 'starter' | 'pro' | 'studio';
-type Page = 'dashboard' | 'analyze' | 'reports' | 'account';
+type Page = 'dashboard' | 'analyze' | 'reports' | 'ownership' | 'marketplace' | 'keys' | 'account';
 type Account = {
   id: number;
   email: string;
@@ -54,6 +56,48 @@ type ReportSummary = {
 };
 type ReportCollection = { reports: ReportSummary[] };
 type SavedReport = ReportSummary & { payload: Analysis };
+type OwnershipApplication = {
+  id: number;
+  report_id: number;
+  app_id: number;
+  game_name: string;
+  steam_url: string;
+  studio_name: string;
+  applicant_name: string;
+  applicant_title: string;
+  business_email: string;
+  company_website_url: string | null;
+  official_contact_url: string | null;
+  steamworks_proof_url: string | null;
+  proof_url: string | null;
+  proof_notes: string;
+  status: 'pending' | 'approved' | 'rejected';
+  reviewed_notes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+type PublishedGame = {
+  id: number;
+  owner_user_id: number;
+  ownership_application_id: number;
+  app_id: number;
+  game_name: string;
+  steam_url: string;
+  pitch: string;
+  contact_email: string | null;
+  created_at: string;
+  updated_at: string;
+};
+type KeyRequest = {
+  id: number;
+  game_id: number;
+  creator_user_id: number;
+  owner_user_id: number;
+  message: string;
+  status: 'pending' | 'approved' | 'rejected' | 'cancelled';
+  created_at: string;
+  updated_at: string;
+};
 
 async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
   let response: Response;
@@ -112,6 +156,22 @@ export default function App() {
   const [selectedReport, setSelectedReport] = useState<SavedReport | null>(null);
   const [reportSearch, setReportSearch] = useState('');
   const [historyError, setHistoryError] = useState('');
+  const [ownerships, setOwnerships] = useState<OwnershipApplication[]>([]);
+  const [games, setGames] = useState<PublishedGame[]>([]);
+  const [keyRequests, setKeyRequests] = useState<KeyRequest[]>([]);
+  const [marketplaceError, setMarketplaceError] = useState('');
+  const [selectedOwnershipReportId, setSelectedOwnershipReportId] = useState('');
+  const [studioName, setStudioName] = useState('');
+  const [applicantName, setApplicantName] = useState('');
+  const [applicantTitle, setApplicantTitle] = useState('');
+  const [businessEmail, setBusinessEmail] = useState('');
+  const [companyWebsiteUrl, setCompanyWebsiteUrl] = useState('');
+  const [officialContactUrl, setOfficialContactUrl] = useState('');
+  const [steamworksProofUrl, setSteamworksProofUrl] = useState('');
+  const [proofUrl, setProofUrl] = useState('');
+  const [proofNotes, setProofNotes] = useState('');
+  const [publishPitch, setPublishPitch] = useState('');
+  const [keyMessage, setKeyMessage] = useState('');
   const [subscription, setSubscription] = useState(false);
   const [subscriptionSource, setSubscriptionSource] = useState<'home' | 'report'>('home');
   const [selectedPlan, setSelectedPlan] = useState('Starter');
@@ -151,6 +211,10 @@ export default function App() {
       .catch(() => localStorage.removeItem(ACCESS_TOKEN_KEY));
   }, []);
 
+  useEffect(() => {
+    if (account?.subscription_status === 'active') void loadMarketplace();
+  }, [account?.subscription_status, account?.premium_role]);
+
   async function loadReports() {
     const token = localStorage.getItem(ACCESS_TOKEN_KEY);
     if (!token) return;
@@ -160,6 +224,110 @@ export default function App() {
       setReports(result.reports);
     } catch (cause) {
       setHistoryError(cause instanceof Error ? cause.message : 'Could not load reports.');
+    }
+  }
+
+  async function loadMarketplace() {
+    const token = localStorage.getItem(ACCESS_TOKEN_KEY);
+    if (!token) return;
+    try {
+      setMarketplaceError('');
+      if (account?.premium_role === 'game_developer') {
+        const [ownershipResult, keyResult, gamesResult] = await Promise.all([
+          api<{ applications: OwnershipApplication[] }>('/api/v1/marketplace/ownership/applications', { headers: { Authorization: `Bearer ${token}` } }),
+          api<{ requests: KeyRequest[] }>('/api/v1/marketplace/key-requests/incoming', { headers: { Authorization: `Bearer ${token}` } }),
+          api<{ games: PublishedGame[] }>('/api/v1/marketplace/games', { headers: { Authorization: `Bearer ${token}` } }),
+        ]);
+        setOwnerships(ownershipResult.applications);
+        setKeyRequests(keyResult.requests);
+        setGames(gamesResult.games);
+      }
+      if (account?.premium_role === 'content_creator') {
+        const [gamesResult, keyResult] = await Promise.all([
+          api<{ games: PublishedGame[] }>('/api/v1/marketplace/games', { headers: { Authorization: `Bearer ${token}` } }),
+          api<{ requests: KeyRequest[] }>('/api/v1/marketplace/key-requests/mine', { headers: { Authorization: `Bearer ${token}` } }),
+        ]);
+        setGames(gamesResult.games);
+        setKeyRequests(keyResult.requests);
+      }
+    } catch (cause) {
+      setMarketplaceError(cause instanceof Error ? cause.message : 'Marketplace data could not load.');
+    }
+  }
+
+  async function applyOwnership(event: FormEvent) {
+    event.preventDefault();
+    const token = localStorage.getItem(ACCESS_TOKEN_KEY);
+    if (!token) return;
+    try {
+      setMarketplaceError('');
+      await api<OwnershipApplication>('/api/v1/marketplace/ownership/applications', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          report_id: Number(selectedOwnershipReportId),
+          studio_name: studioName,
+          applicant_name: applicantName,
+          applicant_title: applicantTitle,
+          business_email: businessEmail,
+          company_website_url: companyWebsiteUrl || null,
+          official_contact_url: officialContactUrl || null,
+          steamworks_proof_url: steamworksProofUrl || null,
+          proof_url: proofUrl || null,
+          proof_notes: proofNotes,
+        }),
+      });
+      setSelectedOwnershipReportId('');
+      setStudioName('');
+      setApplicantName('');
+      setApplicantTitle('');
+      setBusinessEmail('');
+      setCompanyWebsiteUrl('');
+      setOfficialContactUrl('');
+      setSteamworksProofUrl('');
+      setProofUrl('');
+      setProofNotes('');
+      await loadMarketplace();
+    } catch (cause) {
+      setMarketplaceError(cause instanceof Error ? cause.message : 'Ownership application failed.');
+    }
+  }
+
+  async function publishApprovedGame(applicationId: number) {
+    const token = localStorage.getItem(ACCESS_TOKEN_KEY);
+    if (!token) return;
+    try {
+      setMarketplaceError('');
+      await api<PublishedGame>('/api/v1/marketplace/games', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          ownership_application_id: applicationId,
+          pitch: publishPitch,
+          contact_email: account?.email,
+        }),
+      });
+      setPublishPitch('');
+      await loadMarketplace();
+    } catch (cause) {
+      setMarketplaceError(cause instanceof Error ? cause.message : 'Publishing failed.');
+    }
+  }
+
+  async function requestKey(gameId: number) {
+    const token = localStorage.getItem(ACCESS_TOKEN_KEY);
+    if (!token) return;
+    try {
+      setMarketplaceError('');
+      await api<KeyRequest>(`/api/v1/marketplace/games/${gameId}/key-requests`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ message: keyMessage }),
+      });
+      setKeyMessage('');
+      await loadMarketplace();
+    } catch (cause) {
+      setMarketplaceError(cause instanceof Error ? cause.message : 'Key request failed.');
     }
   }
 
@@ -356,23 +524,30 @@ export default function App() {
   }
 
   function renderDashboard() {
+    const developer = account?.premium_role === 'game_developer';
     return <>
       <section className="dash-hero">
-        <div><p className="eyebrow">COMMAND CENTER</p><h1>Welcome back, {account?.display_name || 'builder'}.</h1><p>Track your reports, compare launch evidence, and move from Steam link to decision without digging through old tabs.</p></div>
-        <button className="primary" type="button" onClick={() => nav('analyze')}>Open Steam analysis <ArrowRight size={17} /></button>
+        <div><p className="eyebrow">COMMAND CENTER</p><h1>Welcome back, {account?.display_name || 'builder'}.</h1><p>{developer ? 'Track your reports, verify ownership, publish approved games, and review creator interest.' : 'Discover verified games from developers and track your key requests.'}</p></div>
+        <button className="primary" type="button" onClick={() => nav(developer ? 'analyze' : 'marketplace')}>{developer ? 'Open Steam analysis' : 'Discover games'} <ArrowRight size={17} /></button>
       </section>
       <section className="metric-grid">
         <article><FileText size={19} /><span>Total reports</span><strong>{reports.length}</strong></article>
         <article><CreditCard size={19} /><span>Plan</span><strong>{prettyPlan(account?.subscription_plan ?? null)}</strong></article>
         <article><User size={19} /><span>Workspace</span><strong>{prettyRole(account?.premium_role ?? null)}</strong></article>
-        <article><CalendarDays size={19} /><span>Latest report</span><strong>{latestReport ? formatDate(latestReport.created_at) : 'None yet'}</strong></article>
+        <article><CalendarDays size={19} /><span>{developer ? 'Latest report' : 'Requests'}</span><strong>{developer ? latestReport ? formatDate(latestReport.created_at) : 'None yet' : keyRequests.length}</strong></article>
       </section>
       <section className="dashboard-grid">
-        <article className="feature-panel wide"><div><p className="eyebrow">PRIMARY TOOL</p><h2>Steam analysis</h2><p>Paste an upcoming or existing Steam page and generate a market report with saved history.</p></div><button className="primary" onClick={() => nav('analyze')}>Analyze a game <ArrowRight size={16} /></button></article>
-        <article className="feature-panel"><h2>My reports</h2><p>Review generated reports, pricing evidence, and competitor matches.</p><button className="plans-link" onClick={() => nav('reports')}>View history <ArrowRight size={14} /></button></article>
-        <article className="feature-panel"><h2>Account</h2><p>Manage your role, subscription plan, and creator verification state.</p><button className="plans-link" onClick={() => nav('account')}>Open account <ArrowRight size={14} /></button></article>
+        {developer ? <>
+          <article className="feature-panel wide"><div><p className="eyebrow">PRIMARY TOOL</p><h2>Steam analysis</h2><p>Generate reports, then apply for ownership verification before publishing.</p></div><button className="primary" onClick={() => nav('analyze')}>Analyze a game <ArrowRight size={16} /></button></article>
+          <article className="feature-panel"><h2>Ownership</h2><p>Submit proof for manual platform review. Approved games can be published.</p><button className="plans-link" onClick={() => nav('ownership')}>Verify game <ArrowRight size={14} /></button></article>
+          <article className="feature-panel"><h2>Key requests</h2><p>See creator demand for your published games.</p><button className="plans-link" onClick={() => nav('keys')}>Review requests <ArrowRight size={14} /></button></article>
+        </> : <>
+          <article className="feature-panel wide"><div><p className="eyebrow">CREATOR ACCESS</p><h2>Discover games</h2><p>Browse verified developer listings and request keys for coverage.</p></div><button className="primary" onClick={() => nav('marketplace')}>Browse games <ArrowRight size={16} /></button></article>
+          <article className="feature-panel"><h2>My requests</h2><p>Track pending and approved key requests.</p><button className="plans-link" onClick={() => nav('keys')}>Open requests <ArrowRight size={14} /></button></article>
+          <article className="feature-panel"><h2>Account</h2><p>Manage your subscription and YouTube channel state.</p><button className="plans-link" onClick={() => nav('account')}>Open account <ArrowRight size={14} /></button></article>
+        </>}
       </section>
-      <section className="page-panel"><div className="section-heading"><h2>Recent reports</h2><button className="plans-link" onClick={() => nav('reports')}>View all <ArrowRight size={14} /></button></div>{renderReportRows(reports.slice(0, 3), true)}</section>
+      {developer && <section className="page-panel"><div className="section-heading"><h2>Recent reports</h2><button className="plans-link" onClick={() => nav('reports')}>View all <ArrowRight size={14} /></button></div>{renderReportRows(reports.slice(0, 3), true)}</section>}
     </>;
   }
 
@@ -415,6 +590,62 @@ export default function App() {
     </>;
   }
 
+  function renderOwnershipPage() {
+    const approved = ownerships.filter(item => item.status === 'approved');
+    return <>
+      <section className="page-heading"><p className="eyebrow">OWNERSHIP REVIEW</p><h1>Verify before publishing.</h1><p>Apply for manual platform review using a report you created. Only approved games can be published to creators.</p></section>
+      <section className="page-panel marketplace-layout">
+        <form className="marketplace-form" onSubmit={applyOwnership}>
+          <h2>Apply for verification</h2>
+          <label>Report<select value={selectedOwnershipReportId} onChange={event => setSelectedOwnershipReportId(event.target.value)} required><option value="">Choose a report</option>{reports.map(report => <option key={report.id} value={report.id}>{report.game_name}</option>)}</select></label>
+          <label>Studio name<input value={studioName} onChange={event => setStudioName(event.target.value)} required /></label>
+          <label>Your name<input value={applicantName} onChange={event => setApplicantName(event.target.value)} required /></label>
+          <label>Your role<input value={applicantTitle} onChange={event => setApplicantTitle(event.target.value)} required placeholder="Founder, producer, publisher manager" /></label>
+          <label>Business email<input type="email" value={businessEmail} onChange={event => setBusinessEmail(event.target.value)} required placeholder="you@studio.com" /></label>
+          <label>Company website<input type="url" value={companyWebsiteUrl} onChange={event => setCompanyWebsiteUrl(event.target.value)} placeholder="https://studio.com" /></label>
+          <label>Official contact or press page<input type="url" value={officialContactUrl} onChange={event => setOfficialContactUrl(event.target.value)} placeholder="https://studio.com/press" /></label>
+          <label>Steamworks proof link<input type="url" value={steamworksProofUrl} onChange={event => setSteamworksProofUrl(event.target.value)} placeholder="Private screenshot link for manual review" /></label>
+          <label>Extra proof URL<input type="url" value={proofUrl} onChange={event => setProofUrl(event.target.value)} placeholder="Publisher page, trailer channel, announcement post" /></label>
+          <label>Verification notes<textarea value={proofNotes} onChange={event => setProofNotes(event.target.value)} required placeholder="Explain your relationship to the game and where reviewers should compare the Steam page, website, email domain, and proof links." /></label>
+          <button className="primary" type="submit">Submit for review <ShieldCheck size={16} /></button>
+        </form>
+        <div className="marketplace-list">
+          <h2>Applications</h2>
+          {marketplaceError && <p className="error" role="alert">{marketplaceError}</p>}
+          {!ownerships.length && <div className="empty-state"><ShieldCheck size={22} /><p>No ownership applications yet.</p></div>}
+          {ownerships.map(item => <article className="market-card" key={item.id}><h3>{item.game_name}</h3><p>{item.studio_name} · {item.applicant_title} · {item.status}</p><p>{item.business_email}</p>{item.reviewed_notes && <p>{item.reviewed_notes}</p>}</article>)}
+        </div>
+      </section>
+      <section className="page-panel">
+        <h2>Publish approved game</h2>
+        {!approved.length ? <div className="empty-state"><Store size={22} /><p>No approved games yet. Platform owners must approve ownership first.</p></div> : <div className="marketplace-list">{approved.map(item => <article className="market-card" key={item.id}><h3>{item.game_name}</h3><textarea value={publishPitch} onChange={event => setPublishPitch(event.target.value)} placeholder="Creator-facing pitch" /><button className="secondary" onClick={() => void publishApprovedGame(item.id)}>Publish game</button></article>)}</div>}
+      </section>
+    </>;
+  }
+
+  function renderMarketplacePage() {
+    const creator = account?.premium_role === 'content_creator';
+    return <>
+      <section className="page-heading"><p className="eyebrow">{creator ? 'DISCOVER GAMES' : 'PUBLISHED GAMES'}</p><h1>{creator ? 'Find games to cover.' : 'Creator-facing catalog.'}</h1><p>{creator ? 'Browse verified games published by developers and request access.' : 'These are the verified games visible to content creators.'}</p></section>
+      <section className="page-panel">
+        {marketplaceError && <p className="error" role="alert">{marketplaceError}</p>}
+        {!games.length && <div className="empty-state"><Store size={22} /><p>No published games yet.</p></div>}
+        <div className="marketplace-list">{games.map(game => <article className="market-card" key={game.id}><h3>{game.game_name}</h3><p>{game.pitch}</p><a href={game.steam_url} target="_blank" rel="noreferrer">Open Steam page</a>{creator && <div className="key-request-box"><textarea value={keyMessage} onChange={event => setKeyMessage(event.target.value)} placeholder="Why do you want to cover this game?" /><button className="secondary" onClick={() => void requestKey(game.id)}>Request key</button></div>}</article>)}</div>
+      </section>
+    </>;
+  }
+
+  function renderKeysPage() {
+    return <>
+      <section className="page-heading"><p className="eyebrow">KEY REQUESTS</p><h1>{account?.premium_role === 'content_creator' ? 'Your requested keys.' : 'Creator requests.'}</h1><p>{account?.premium_role === 'content_creator' ? 'Track requests you sent to developers.' : 'Review creator interest before approving keys later.'}</p></section>
+      <section className="page-panel">
+        {marketplaceError && <p className="error" role="alert">{marketplaceError}</p>}
+        {!keyRequests.length && <div className="empty-state"><KeyRound size={22} /><p>No key requests yet.</p></div>}
+        <div className="marketplace-list">{keyRequests.map(request => <article className="market-card" key={request.id}><h3>Request #{request.id}</h3><p>{request.message}</p><p>Status: {request.status}</p></article>)}</div>
+      </section>
+    </>;
+  }
+
   function renderAccountPage() {
     return <>
       <section className="page-heading"><p className="eyebrow">ACCOUNT</p><h1>Your Launchpad workspace.</h1><p>Keep the account simple: login first, then plan and role. Creator verification sits here where it belongs.</p></section>
@@ -429,8 +660,16 @@ export default function App() {
   function renderWorkspace() {
     const navItems: { id: Page; label: string; icon: ReactNode }[] = [
       { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={17} /> },
-      { id: 'analyze', label: 'Steam analysis', icon: <Search size={17} /> },
-      { id: 'reports', label: 'My reports', icon: <FileText size={17} /> },
+      ...(account?.premium_role === 'game_developer' ? [
+        { id: 'analyze' as Page, label: 'Steam analysis', icon: <Search size={17} /> },
+        { id: 'reports' as Page, label: 'My reports', icon: <FileText size={17} /> },
+        { id: 'ownership' as Page, label: 'Ownership', icon: <ShieldCheck size={17} /> },
+        { id: 'marketplace' as Page, label: 'Published games', icon: <Store size={17} /> },
+        { id: 'keys' as Page, label: 'Key requests', icon: <KeyRound size={17} /> },
+      ] : [
+        { id: 'marketplace' as Page, label: 'Discover games', icon: <Store size={17} /> },
+        { id: 'keys' as Page, label: 'My key requests', icon: <KeyRound size={17} /> },
+      ]),
       { id: 'account', label: 'Account', icon: <User size={17} /> },
     ];
     return <main className="dashboard-shell">
@@ -442,6 +681,9 @@ export default function App() {
         {page === 'dashboard' && renderDashboard()}
         {page === 'analyze' && renderAnalyzePage()}
         {page === 'reports' && renderReportsPage()}
+        {page === 'ownership' && renderOwnershipPage()}
+        {page === 'marketplace' && renderMarketplacePage()}
+        {page === 'keys' && renderKeysPage()}
         {page === 'account' && renderAccountPage()}
       </section>
     </main>;
@@ -449,8 +691,8 @@ export default function App() {
 
   return <div className="page">
     <header className="header">
-      <a className="brand" href="/" aria-label="Launchpad home"><span><Gamepad2 size={21} /></span>launchpad.</a>
-      <div className="auth-actions">{account ? <><button className="auth-login" type="button" onClick={() => nav('dashboard')}>Dashboard</button><button className="auth-login" type="button" onClick={() => nav('reports')}>My reports</button><button className="auth-login" type="button" onClick={() => nav('account')}>Account</button><span className="account-chip"><User size={15} />{account.display_name || account.email}</span><button className="auth-login" type="button" onClick={logout}>Log out <LogOut size={14} /></button></> : <><button className="auth-login" type="button" onClick={() => openAuth('login')}>Log in</button><button className="primary" type="button" onClick={() => openAuth('signup')}>Sign up</button></>}</div>
+      <a className="brand" href="/" aria-label="Launchpad home"><span><img src="/launchpad-icon.png" alt="" /></span>launchpad.</a>
+      <div className="auth-actions">{account ? <><button className="auth-login" type="button" onClick={() => nav('dashboard')}>Dashboard</button><button className="auth-login" type="button" onClick={() => nav(account.premium_role === 'content_creator' ? 'marketplace' : 'reports')}>{account.premium_role === 'content_creator' ? 'Discover' : 'My reports'}</button><button className="auth-login" type="button" onClick={() => nav('account')}>Account</button><span className="account-chip"><User size={15} />{account.display_name || account.email}</span><button className="auth-login" type="button" onClick={logout}>Log out <LogOut size={14} /></button></> : <><button className="auth-login" type="button" onClick={() => openAuth('login')}>Log in</button><button className="primary" type="button" onClick={() => openAuth('signup')}>Sign up</button></>}</div>
     </header>
 
     {!account && renderWelcome()}

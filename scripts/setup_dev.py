@@ -7,7 +7,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-
 REPO_DIR = Path(__file__).resolve().parents[1]
 VENV_DIR = REPO_DIR / ".venv"
 
@@ -47,7 +46,20 @@ def main() -> None:
 
     python = str(venv_python())
     run([python, "-m", "pip", "install", "--upgrade", "pip"])
-    run([python, "-m", "pip", "install", "-e", "packages/core", "-e", "pipelines", "-e", "apps/api[dev]"])
+    run(
+        [
+            python,
+            "-m",
+            "pip",
+            "install",
+            "-e",
+            "packages/core",
+            "-e",
+            "pipelines",
+            "-e",
+            "apps/api[dev]",
+        ]
+    )
 
     (REPO_DIR / "data" / "raw" / "steam").mkdir(parents=True, exist_ok=True)
     (REPO_DIR / "data" / "processed").mkdir(parents=True, exist_ok=True)
