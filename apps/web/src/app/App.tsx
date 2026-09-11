@@ -71,7 +71,7 @@ export default function App() {
   const [proofUrl, setProofUrl] = useState('');
   const [proofNotes, setProofNotes] = useState('');
   const [publishPitch, setPublishPitch] = useState('');
-  const [keyMessage, setKeyMessage] = useState('');
+  const [keyMessages, setKeyMessages] = useState<Record<number, string>>({});
   const [subscription, setSubscription] = useState(false);
   const [subscriptionSource, setSubscriptionSource] = useState<'home' | 'report'>('home');
   const [selectedPlan, setSelectedPlan] = useState('Starter');
@@ -222,9 +222,9 @@ export default function App() {
       await api<KeyRequest>(`/api/v1/marketplace/games/${gameId}/key-requests`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ message: keyMessage }),
+        body: JSON.stringify({ message: keyMessages[gameId] || '' }),
       });
-      setKeyMessage('');
+      setKeyMessages(messages => ({ ...messages, [gameId]: '' }));
       await loadMarketplace();
     } catch (cause) {
       setMarketplaceError(cause instanceof Error ? cause.message : 'Key request failed.');
@@ -530,7 +530,7 @@ export default function App() {
       <section className="page-panel">
         {marketplaceError && <p className="error" role="alert">{marketplaceError}</p>}
         {!games.length && <div className="empty-state"><Store size={22} /><p>No published games yet.</p></div>}
-        <div className="marketplace-list">{games.map(game => <article className="market-card" key={game.id}><h3>{game.game_name}</h3><p>{game.pitch}</p><a href={game.steam_url} target="_blank" rel="noreferrer">Open Steam page</a>{creator && <div className="key-request-box"><textarea value={keyMessage} onChange={event => setKeyMessage(event.target.value)} placeholder="Why do you want to cover this game?" /><button className="secondary" onClick={() => void requestKey(game.id)}>Request key</button></div>}</article>)}</div>
+        <div className="marketplace-list">{games.map(game => <article className="market-card" key={game.id}><h3>{game.game_name}</h3><p>{game.pitch}</p><a href={game.steam_url} target="_blank" rel="noreferrer">Open Steam page</a>{creator && <div className="key-request-box"><textarea value={keyMessages[game.id] || ''} onChange={event => setKeyMessages(messages => ({ ...messages, [game.id]: event.target.value }))} placeholder="Why do you want to cover this game?" /><button className="secondary" onClick={() => void requestKey(game.id)}>Request key</button></div>}</article>)}</div>
       </section>
     </>;
   }
