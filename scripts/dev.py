@@ -9,7 +9,6 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-
 REPO_DIR = Path(__file__).resolve().parents[1]
 VENV_DIR = REPO_DIR / ".venv"
 

@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     )
     upcoming_auto_refresh: bool = True
     session_ttl_hours: int = 168
+    admin_token: str | None = None
 
     @property
     def cors_origin_list(self) -> list[str]:
